@@ -3,8 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Clock, TrendingUp, Eye, AlertCircle } from "lucide-react";
+import { ArrowLeft, Clock, TrendingUp, Eye, AlertCircle, Sparkles } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import Navbar from "@/components/Navbar";
 
 const SessionReport = () => {
   const { id } = useParams();
@@ -78,18 +79,20 @@ const SessionReport = () => {
   }));
 
   return (
-    <div className="min-h-screen bg-gradient-hero p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Laporan Sesi Belajar</h1>
-            <p className="text-sm text-muted-foreground">{formatDate(session.mulai)}</p>
+    <>
+      <Navbar />
+      <div className="min-h-screen bg-gradient-hero p-4 md:p-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Header */}
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => navigate("/dashboard")}>
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Laporan Sesi Belajar</h1>
+              <p className="text-sm text-muted-foreground">{formatDate(session.mulai)}</p>
+            </div>
           </div>
-        </div>
 
         {/* Stats Cards */}
         <div className="grid md:grid-cols-4 gap-4">
@@ -213,31 +216,56 @@ const SessionReport = () => {
           </CardContent>
         </Card>
 
-        {/* Insights */}
-        <Card className="shadow-card bg-gradient-primary text-white">
-          <CardHeader>
-            <CardTitle className="text-white">Insights</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-white/90">
-            {session.skor_rata >= 80 && (
-              <p>✓ Fokus Anda sangat baik! Pertahankan konsistensi ini.</p>
-            )}
-            {session.skor_rata >= 60 && session.skor_rata < 80 && (
-              <p>→ Fokus Anda cukup baik, masih ada ruang untuk peningkatan.</p>
-            )}
-            {session.skor_rata < 60 && (
-              <p>! Fokus Anda perlu ditingkatkan. Coba kurangi distraksi di sesi berikutnya.</p>
-            )}
-            {distractions.length > 10 && (
-              <p>• Terlalu banyak distraksi ({distractions.length}x). Coba buat lingkungan belajar yang lebih kondusif.</p>
-            )}
-            {session.durasi_efektif > 3600 && (
-              <p>• Sesi yang panjang! Jangan lupa istirahat untuk menjaga fokus optimal.</p>
-            )}
-          </CardContent>
-        </Card>
+          {/* Insights */}
+          <Card className="shadow-glow bg-gradient-primary text-white border-0">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5" />
+                Insights & Tips
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-white/95">
+              {session.skor_rata >= 80 && (
+                <p className="flex items-start gap-2">
+                  <span>🔥</span>
+                  <span>Mantap banget! Fokus kamu di level pro. Keep it up!</span>
+                </p>
+              )}
+              {session.skor_rata >= 60 && session.skor_rata < 80 && (
+                <p className="flex items-start gap-2">
+                  <span>💪</span>
+                  <span>Lumayan nih! Masih bisa lebih fokus lagi. Coba kurangin distraksi di sesi berikutnya.</span>
+                </p>
+              )}
+              {session.skor_rata < 60 && (
+                <p className="flex items-start gap-2">
+                  <span>💡</span>
+                  <span>Fokus masih naik-turun nih. Coba matiin notif HP dan cari tempat yang lebih tenang ya!</span>
+                </p>
+              )}
+              {distractions.length > 10 && (
+                <p className="flex items-start gap-2">
+                  <span>⚠️</span>
+                  <span>Wah, {distractions.length}x distraksi! Coba buat lingkungan belajar yang lebih kondusif. Matiin notifikasi dan bilang ke orang rumah kalau lagi belajar.</span>
+                </p>
+              )}
+              {session.durasi_efektif > 3600 && (
+                <p className="flex items-start gap-2">
+                  <span>⏰</span>
+                  <span>Belajar {Math.floor(session.durasi_efektif / 3600)} jam lebih! Amazing! Tapi jangan lupa istirahat 15 menit setiap jam biar otak tetap fresh.</span>
+                </p>
+              )}
+              {session.durasi_efektif < 900 && (
+                <p className="flex items-start gap-2">
+                  <span>🎯</span>
+                  <span>Sesi masih pendek nih. Coba target minimal 25 menit (1 Pomodoro) untuk hasil lebih optimal!</span>
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

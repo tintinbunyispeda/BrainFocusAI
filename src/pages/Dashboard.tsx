@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useFaceDetection } from "@/hooks/useFaceDetection";
-import { LogOut, Play, Square, Brain, Eye, Activity } from "lucide-react";
+import { Play, Square, Brain, Eye, Activity, AlertTriangle } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import Navbar from "@/components/Navbar";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -25,13 +26,16 @@ const Dashboard = () => {
   const faceDetection = useFaceDetection(videoRef, canvasRef, isSessionActive);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate("/auth");
       } else {
         setUser(session.user);
       }
-    });
+    };
+    
+    checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session) {
@@ -171,52 +175,53 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-hero p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-primary rounded-lg">
-              <Brain className="w-6 h-6 text-white" />
-            </div>
+    <>
+      <Navbar />
+      <div className="min-h-screen bg-gradient-hero p-4 md:p-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Welcome Header */}
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold">Focus Tracker</h1>
-              <p className="text-sm text-muted-foreground">
-                Halo, {user?.user_metadata?.nama || user?.email}
+              <h1 className="text-3xl font-bold">
+                Halo, {user?.user_metadata?.nama?.split(" ")[0] || "Sobat"} 👋
+              </h1>
+              <p className="text-muted-foreground">
+                {isSessionActive 
+                  ? "Tetap fokus! Kamu lagi hebat nih 🔥" 
+                  : "Siap belajar hari ini? Yuk mulai!"}
               </p>
             </div>
           </div>
-          <Button variant="outline" size="icon" onClick={handleLogout}>
-            <LogOut className="w-4 h-4" />
-          </Button>
-        </div>
 
-        {/* Main Content */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Video Feed */}
-          <div className="lg:col-span-2 space-y-4">
-            <Card className="shadow-card">
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Live Monitoring</CardTitle>
-                    <CardDescription>
-                      Kamera akan mendeteksi wajah dan arah pandangan Anda
-                    </CardDescription>
+          {/* Main Content */}
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Video Feed */}
+            <div className="lg:col-span-2 space-y-4">
+              <Card className="shadow-card border-2 border-primary/20">
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Eye className="w-5 h-5 text-primary" />
+                        Monitoring Live
+                      </CardTitle>
+                      <CardDescription>
+                        AI akan tracking wajah & arah pandangan kamu
+                      </CardDescription>
+                    </div>
+                    {isSessionActive ? (
+                      <Button onClick={handleEndSession} variant="destructive" size="lg" className="shadow-glow">
+                        <Square className="w-4 h-4 mr-2" />
+                        Stop Sesi
+                      </Button>
+                    ) : (
+                      <Button onClick={handleStartSession} size="lg" className="shadow-glow">
+                        <Play className="w-4 h-4 mr-2" />
+                        Mulai Belajar
+                      </Button>
+                    )}
                   </div>
-                  {isSessionActive ? (
-                    <Button onClick={handleEndSession} variant="destructive" size="lg">
-                      <Square className="w-4 h-4 mr-2" />
-                      Stop
-                    </Button>
-                  ) : (
-                    <Button onClick={handleStartSession} size="lg">
-                      <Play className="w-4 h-4 mr-2" />
-                      Mulai Sesi
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
+                </CardHeader>
               <CardContent>
                 <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
                   <video
@@ -231,22 +236,24 @@ const Dashboard = () => {
                     width={640}
                     height={480}
                   />
-                  {!isSessionActive && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                      <p className="text-white text-lg">Mulai sesi untuk mengaktifkan kamera</p>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20 backdrop-blur-sm">
+                      <Brain className="w-16 h-16 text-primary mb-4 animate-pulse" />
+                      <p className="text-foreground text-lg font-medium">Klik "Mulai Belajar" untuk mulai</p>
+                      <p className="text-muted-foreground text-sm mt-2">Pastikan kamera kamu udah nyala ya!</p>
                     </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Focus Graph */}
-            {isSessionActive && (
-              <Card className="shadow-card">
-                <CardHeader>
-                  <CardTitle>Grafik Fokus Real-Time</CardTitle>
-                  <CardDescription>Skor fokus Anda selama 60 detik terakhir</CardDescription>
-                </CardHeader>
+              {isSessionActive && (
+                <Card className="shadow-card border-2 border-accent/20">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-accent" />
+                      Grafik Fokus Real-Time
+                    </CardTitle>
+                    <CardDescription>Tracking skor fokus 60 detik terakhir</CardDescription>
+                  </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={200}>
                     <LineChart data={focusData}>
@@ -270,57 +277,72 @@ const Dashboard = () => {
 
           {/* Stats Panel */}
           <div className="space-y-4">
+
             {isSessionActive && (
               <>
-                <Card className="shadow-card bg-gradient-primary text-white">
+                <Card className="shadow-card bg-gradient-primary text-white border-0">
                   <CardHeader>
                     <div className="flex items-center gap-2">
-                      <Activity className="w-5 h-5" />
+                      <Activity className="w-5 h-5 text-white" />
                       <CardTitle className="text-white">Waktu Belajar</CardTitle>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-4xl font-bold">{formatTime(elapsedTime)}</p>
+                    <p className="text-5xl font-bold tabular-nums">{formatTime(elapsedTime)}</p>
+                    <p className="text-white/80 text-sm mt-2">
+                      {elapsedTime >= 1500 ? "Wow! Udah lama nih, istirahat bentar yuk 😊" : "Tetap semangat!"}
+                    </p>
                   </CardContent>
                 </Card>
 
-                <Card className="shadow-card">
+                <Card className="shadow-card border-2 border-success/30">
                   <CardHeader>
                     <div className="flex items-center gap-2">
-                      <Eye className="w-5 h-5 text-primary" />
-                      <CardTitle>Status Fokus</CardTitle>
+                      <Eye className="w-5 h-5 text-success" />
+                      <CardTitle>Status Fokus Sekarang</CardTitle>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-4">
                     <div>
-                      <p className="text-sm text-muted-foreground mb-1">Skor Saat Ini</p>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-success transition-all"
-                            style={{ width: `${faceDetection.focusScore}%` }}
-                          />
-                        </div>
-                        <span className="text-2xl font-bold text-success">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm text-muted-foreground">Skor Saat Ini</p>
+                        <span className={`text-2xl font-bold ${
+                          faceDetection.focusScore >= 80 ? "text-success" :
+                          faceDetection.focusScore >= 60 ? "text-accent" : "text-destructive"
+                        }`}>
                           {faceDetection.focusScore}
                         </span>
                       </div>
+                      <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-success transition-all rounded-full"
+                          style={{ width: `${faceDetection.focusScore}%` }}
+                        />
+                      </div>
+                      {faceDetection.focusScore < 50 && (
+                        <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          Fokus menurun nih!
+                        </p>
+                      )}
                     </div>
 
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Status Wajah</p>
-                      <p className="font-medium">
-                        {faceDetection.isFaceDetected ? "✓ Terdeteksi" : "✗ Tidak Terdeteksi"}
-                      </p>
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">Status Wajah</p>
+                        <p className={`font-medium text-sm ${faceDetection.isFaceDetected ? "text-success" : "text-destructive"}`}>
+                          {faceDetection.isFaceDetected ? "✓ Terdeteksi" : "✗ Tidak Ada"}
+                        </p>
+                      </div>
+
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">Arah Lihat</p>
+                        <p className="font-medium text-sm capitalize">{faceDetection.gazeDirection}</p>
+                      </div>
                     </div>
 
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Arah Pandangan</p>
-                      <p className="font-medium capitalize">{faceDetection.gazeDirection}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Total Distraksi</p>
+                    <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+                      <p className="text-xs text-muted-foreground mb-1">Total Distraksi</p>
                       <p className="text-2xl font-bold text-destructive">{distractionCount}</p>
                     </div>
                   </CardContent>
@@ -329,18 +351,34 @@ const Dashboard = () => {
             )}
 
             {!isSessionActive && (
-              <Card className="shadow-card">
+              <Card className="shadow-card bg-gradient-to-br from-primary/10 to-secondary/10 border-2 border-primary/20">
                 <CardHeader>
-                  <CardTitle>Mulai Sesi Belajar</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-primary" />
+                    Yuk Mulai Belajar!
+                  </CardTitle>
                   <CardDescription>
-                    Klik tombol "Mulai Sesi" untuk memulai monitoring fokus
+                    Klik tombol di atas untuk mulai sesi belajar
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <p>• Pastikan kamera Anda berfungsi</p>
-                    <p>• Posisikan wajah di depan kamera</p>
-                    <p>• Sistem akan mencatat fokus Anda secara real-time</p>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-start gap-2">
+                      <span className="text-primary">✓</span>
+                      <p>Pastikan kamera berfungsi dengan baik</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-primary">✓</span>
+                      <p>Posisikan wajah di tengah kamera</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-primary">✓</span>
+                      <p>Sistem akan auto-save setiap detik</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-primary">✓</span>
+                      <p>Matikan notifikasi untuk fokus maksimal</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -349,6 +387,7 @@ const Dashboard = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
