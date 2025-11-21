@@ -58,8 +58,8 @@ const Auth = () => {
       });
     } else {
       toast({
-        title: "Berhasil!",
-        description: "Akun berhasil dibuat. Silakan login.",
+        title: "Success!",
+        description: "Account created successfully. Please sign in.",
       });
     }
 
@@ -98,13 +98,13 @@ const Auth = () => {
           <div className="space-y-4">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full">
               <Brain className="w-5 h-5 text-primary" />
-              <span className="text-sm font-medium text-primary">AI-Powered Focus Tracking</span>
+              <span className="text-sm font-medium text-primary">AI-Powered Focus Analytics</span>
             </div>
             <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Tingkatkan Fokus Belajar Anda
+              Master Your Focus
             </h1>
             <p className="text-lg text-muted-foreground">
-              Sistem monitoring fokus dengan AI untuk membantu Anda belajar lebih efektif
+              Real-time AI monitoring to help you study smarter, not harder
             </p>
           </div>
 
@@ -114,9 +114,9 @@ const Auth = () => {
                 <Eye className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold">Deteksi Real-Time</h3>
+                <h3 className="font-semibold">Live Detection</h3>
                 <p className="text-sm text-muted-foreground">
-                  AI mendeteksi fokus Anda secara real-time menggunakan kamera
+                  Track your focus in real-time with advanced face & gaze detection
                 </p>
               </div>
             </div>
@@ -126,9 +126,9 @@ const Auth = () => {
                 <TrendingUp className="w-5 h-5 text-secondary" />
               </div>
               <div>
-                <h3 className="font-semibold">Analisis & Rekomendasi</h3>
+                <h3 className="font-semibold">Smart Insights</h3>
                 <p className="text-sm text-muted-foreground">
-                  Dapatkan insights dan rekomendasi untuk meningkatkan produktivitas
+                  Get personalized recommendations to boost your productivity
                 </p>
               </div>
             </div>
@@ -138,16 +138,16 @@ const Auth = () => {
         {/* Right side - Auth Form */}
         <Card className="shadow-glow">
           <CardHeader>
-            <CardTitle>Selamat Datang</CardTitle>
+            <CardTitle>Welcome Back</CardTitle>
             <CardDescription>
-              Masuk atau daftar untuk mulai menggunakan sistem
+              Sign in or create an account to get started
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="login" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="register">Daftar</TabsTrigger>
+                <TabsTrigger value="login">Sign In</TabsTrigger>
+                <TabsTrigger value="register">Sign Up</TabsTrigger>
               </TabsList>
 
               <TabsContent value="login">
@@ -158,7 +158,7 @@ const Auth = () => {
                       id="login-email"
                       name="email"
                       type="email"
-                      placeholder="nama@email.com"
+                      placeholder="your@email.com"
                       required
                     />
                   </div>
@@ -173,7 +173,7 @@ const Auth = () => {
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Loading..." : "Masuk"}
+                    {loading ? "Loading..." : "Sign In"}
                   </Button>
                 </form>
               </TabsContent>
@@ -181,12 +181,12 @@ const Auth = () => {
               <TabsContent value="register">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="register-nama">Nama Lengkap</Label>
+                    <Label htmlFor="register-nama">Full Name</Label>
                     <Input
                       id="register-nama"
                       name="nama"
                       type="text"
-                      placeholder="Nama Anda"
+                      placeholder="Your Name"
                       required
                     />
                   </div>
@@ -196,7 +196,7 @@ const Auth = () => {
                       id="register-email"
                       name="email"
                       type="email"
-                      placeholder="nama@email.com"
+                      placeholder="your@email.com"
                       required
                     />
                   </div>
@@ -212,7 +212,7 @@ const Auth = () => {
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Loading..." : "Daftar"}
+                    {loading ? "Loading..." : "Create Account"}
                   </Button>
                 </form>
               </TabsContent>

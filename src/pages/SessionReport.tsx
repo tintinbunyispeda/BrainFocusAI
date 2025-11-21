@@ -89,7 +89,7 @@ const SessionReport = () => {
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">Laporan Sesi Belajar</h1>
+              <h1 className="text-2xl font-bold">Session Report</h1>
               <p className="text-sm text-muted-foreground">{formatDate(session.mulai)}</p>
             </div>
           </div>
@@ -100,7 +100,7 @@ const SessionReport = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-primary" />
-                <CardTitle className="text-sm">Durasi Total</CardTitle>
+                <CardTitle className="text-sm">Total Duration</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -112,7 +112,7 @@ const SessionReport = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-success" />
-                <CardTitle className="text-sm">Skor Rata-Rata</CardTitle>
+                <CardTitle className="text-sm">Average Score</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -138,7 +138,7 @@ const SessionReport = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-destructive" />
-                <CardTitle className="text-sm">Total Distraksi</CardTitle>
+                <CardTitle className="text-sm">Total Distractions</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -150,8 +150,8 @@ const SessionReport = () => {
         {/* Focus Graph */}
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle>Grafik Fokus Sepanjang Sesi</CardTitle>
-            <CardDescription>Skor fokus Anda dari awal hingga akhir sesi</CardDescription>
+            <CardTitle>Focus Graph Throughout Session</CardTitle>
+            <CardDescription>Your focus score from start to finish</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -181,8 +181,8 @@ const SessionReport = () => {
         {/* Distractions List */}
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle>Riwayat Distraksi</CardTitle>
-            <CardDescription>Daftar momen ketika fokus Anda terganggu</CardDescription>
+            <CardTitle>Distraction History</CardTitle>
+            <CardDescription>Moments when your focus was interrupted</CardDescription>
           </CardHeader>
           <CardContent>
             {distractions.length > 0 ? (
