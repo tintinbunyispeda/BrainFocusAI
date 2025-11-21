@@ -73,19 +73,19 @@ const Profile = () => {
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">Profil Saya</h1>
-              <p className="text-sm text-muted-foreground">Kelola informasi akun kamu</p>
+              <h1 className="text-2xl font-bold">My Profile</h1>
+              <p className="text-sm text-muted-foreground">Manage your account information</p>
             </div>
           </div>
 
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle>Informasi Akun</CardTitle>
-            <CardDescription>Update nama dan informasi pribadi</CardDescription>
+            <CardTitle>Account Info</CardTitle>
+            <CardDescription>Update your name and personal details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="nama">Nama Lengkap</Label>
+              <Label htmlFor="nama">Full Name</Label>
               <div className="flex gap-2">
                 <User className="w-5 h-5 text-muted-foreground mt-2" />
                 <Input
@@ -115,7 +115,7 @@ const Profile = () => {
 
             <Button onClick={handleSave} disabled={loading} className="w-full sm:w-auto">
               <Save className="w-4 h-4 mr-2" />
-              {loading ? "Menyimpan..." : "Simpan Perubahan"}
+              {loading ? "Saving..." : "Save Changes"}
             </Button>
           </CardContent>
         </Card>
@@ -124,29 +124,29 @@ const Profile = () => {
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Lightbulb className="w-5 h-5" />
-                Tips Fokus Maksimal
+                Focus Tips
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-white/95">
               <p className="flex items-start gap-2">
                 <span>📵</span>
-                <span>Matiin notif HP atau pake mode fokus/DND saat belajar</span>
+                <span>Turn off phone notifications or use focus/DND mode</span>
               </p>
               <p className="flex items-start gap-2">
                 <span>🎧</span>
-                <span>Coba dengerin lo-fi, classical, atau white noise buat bantu konsentrasi</span>
+                <span>Try lo-fi, classical, or white noise for better concentration</span>
               </p>
               <p className="flex items-start gap-2">
                 <span>⏰</span>
-                <span>Pakai teknik Pomodoro: 25 menit fokus, 5 menit istirahat. Repeat!</span>
+                <span>Use Pomodoro: 25 min focus, 5 min break. Repeat!</span>
               </p>
               <p className="flex items-start gap-2">
                 <span>🌿</span>
-                <span>Cari tempat yang terang, sejuk, dan minim gangguan. Window seat is the best!</span>
+                <span>Find a bright, cool, quiet spot. Window seats work great!</span>
               </p>
               <p className="flex items-start gap-2">
                 <span>💧</span>
-                <span>Jangan lupa minum air putih dan snack sehat. Otak butuh energi!</span>
+                <span>Stay hydrated and snack healthy. Your brain needs fuel!</span>
               </p>
             </CardContent>
           </Card>

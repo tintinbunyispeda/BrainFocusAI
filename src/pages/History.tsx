@@ -106,8 +106,8 @@ const History = () => {
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">Riwayat Belajar</h1>
-              <p className="text-sm text-muted-foreground">Lihat semua sesi belajar kamu</p>
+              <h1 className="text-2xl font-bold">Study History</h1>
+              <p className="text-sm text-muted-foreground">View all your study sessions</p>
             </div>
           </div>
 
@@ -117,7 +117,7 @@ const History = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-primary" />
-                <CardTitle className="text-sm">Total Sesi</CardTitle>
+                <CardTitle className="text-sm">Total Sessions</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -129,7 +129,7 @@ const History = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-secondary" />
-                <CardTitle className="text-sm">Total Waktu</CardTitle>
+                <CardTitle className="text-sm">Total Time</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -141,7 +141,7 @@ const History = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-success" />
-                <CardTitle className="text-sm">Rata-rata Skor</CardTitle>
+                <CardTitle className="text-sm">Average Score</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -155,7 +155,7 @@ const History = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <Eye className="w-4 h-4 text-accent" />
-                <CardTitle className="text-sm">Skor Terbaik</CardTitle>
+                <CardTitle className="text-sm">Best Score</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
@@ -169,17 +169,17 @@ const History = () => {
         {/* Sessions List */}
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle>Semua Sesi</CardTitle>
-            <CardDescription>Klik untuk melihat detail atau hapus sesi lama</CardDescription>
+            <CardTitle>All Sessions</CardTitle>
+            <CardDescription>Click to view details or delete old sessions</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
               <p className="text-center py-8 text-muted-foreground">Loading...</p>
             ) : sessions.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">Belum ada riwayat sesi</p>
+                <p className="text-muted-foreground mb-4">No sessions yet</p>
                 <Button onClick={() => navigate("/dashboard")}>
-                  Mulai Sesi Pertama
+                  Start Your First Session
                 </Button>
               </div>
             ) : (
