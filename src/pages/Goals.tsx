@@ -46,13 +46,14 @@ const Goals = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Type assertion to handle the types until they regenerate
     const { data } = await supabase
       .from("study_goals")
       .select("*")
-      .eq("user_id", user.id);
+      .eq("user_id", user.id) as any;
 
     if (data) {
-      setGoals(data);
+      setGoals(data as Goal[]);
     }
     setLoading(false);
   };
@@ -60,7 +61,8 @@ const Goals = () => {
   const createGoal = async (type: string, targetValue: number, period: string) => {
     if (!user) return;
 
-    const { error } = await supabase
+    // Type assertion to handle the types until they regenerate
+    const { error } = await (supabase
       .from("study_goals")
       .insert({
         user_id: user.id,
@@ -68,7 +70,7 @@ const Goals = () => {
         target_value: targetValue,
         current_value: 0,
         period,
-      });
+      }) as any);
 
     if (error) {
       toast({
