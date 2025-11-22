@@ -49,53 +49,62 @@ const Dashboard = () => {
   }, [navigate]);
 
   useEffect(() => {
-    if (!isSessionActive) return;
+    if (!isSessionActive || !sessionStartTime) return;
 
     const interval = setInterval(() => {
-      if (sessionStartTime) {
-        const elapsed = Math.floor((Date.now() - sessionStartTime.getTime()) / 1000);
-        setElapsedTime(elapsed);
-
-        // Add focus data point
-        setFocusData((prev) => [
-          ...prev.slice(-59),
-          {
-            second: elapsed,
-            score: faceDetection.focusScore,
-          },
-        ]);
-
-        // Save to database
-        if (sessionId && faceDetection.isFaceDetected) {
-          supabase.from("focus_details").insert({
-            session_id: sessionId,
-            detik_ke: elapsed,
-            skor: faceDetection.focusScore,
-            arah_tatapan: faceDetection.gazeDirection,
-            status_wajah: "detected",
-          }).then();
-        } else if (sessionId) {
-          supabase.from("focus_details").insert({
-            session_id: sessionId,
-            detik_ke: elapsed,
-            skor: 0,
-            arah_tatapan: "unknown",
-            status_wajah: "not_detected",
-          }).then();
-
-          setDistractionCount((prev) => prev + 1);
-          
-          supabase.from("distractions").insert({
-            session_id: sessionId,
-            jenis: "face_not_detected",
-            durasi: 1,
-          }).then();
-        }
-      }
+      const elapsed = Math.floor((Date.now() - sessionStartTime.getTime()) / 1000);
+      setElapsedTime(elapsed);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isSessionActive, sessionStartTime, faceDetection, sessionId]);
+  }, [isSessionActive, sessionStartTime]);
+
+  useEffect(() => {
+    if (!isSessionActive || !sessionId || elapsedTime <= 0) return;
+
+    // Add focus data point for chart
+    setFocusData((prev) => [
+      ...prev.slice(-59),
+      {
+        second: elapsedTime,
+        score: faceDetection.focusScore,
+      },
+    ]);
+
+    // Save to database
+    if (faceDetection.isFaceDetected) {
+      supabase.from("focus_details").insert({
+        session_id: sessionId,
+        detik_ke: elapsedTime,
+        skor: faceDetection.focusScore,
+        arah_tatapan: faceDetection.gazeDirection,
+        status_wajah: "detected",
+      }).then();
+    } else {
+      supabase.from("focus_details").insert({
+        session_id: sessionId,
+        detik_ke: elapsedTime,
+        skor: 0,
+        arah_tatapan: "unknown",
+        status_wajah: "not_detected",
+      }).then();
+
+      setDistractionCount((prev) => prev + 1);
+
+      supabase.from("distractions").insert({
+        session_id: sessionId,
+        jenis: "face_not_detected",
+        durasi: 1,
+      }).then();
+    }
+  }, [
+    isSessionActive,
+    sessionId,
+    elapsedTime,
+    faceDetection.focusScore,
+    faceDetection.isFaceDetected,
+    faceDetection.gazeDirection,
+  ]);
 
   const handleStartSession = async () => {
     const { data, error } = await supabase
@@ -226,7 +235,7 @@ const Dashboard = () => {
                 <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
                   <video
                     ref={videoRef}
-                    className="absolute inset-0 w-full h-full object-cover opacity-0"
+                    className={`absolute inset-0 w-full h-full object-cover ${isSessionActive ? 'opacity-100' : 'opacity-40'}`}
                     autoPlay
                     playsInline
                   />
