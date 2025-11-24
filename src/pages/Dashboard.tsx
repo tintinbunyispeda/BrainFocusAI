@@ -27,6 +27,8 @@ const Dashboard = () => {
   const [distractionCount, setDistractionCount] = useState(0);
   const [materialName, setMaterialName] = useState("");
   const [materialCategory, setMaterialCategory] = useState("Mathematics");
+  const [existingMaterials, setExistingMaterials] = useState<any[]>([]);
+  const [selectedMaterialId, setSelectedMaterialId] = useState<string>("");
 
   const faceDetection = useFaceDetection(videoRef, canvasRef, isSessionActive);
 
@@ -52,6 +54,23 @@ const Dashboard = () => {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  useEffect(() => {
+    if (user) {
+      loadExistingMaterials();
+    }
+  }, [user]);
+
+  const loadExistingMaterials = async () => {
+    const { data } = await supabase
+      .from("study_materials")
+      .select("*")
+      .order("created_at", { ascending: false });
+    
+    if (data) {
+      setExistingMaterials(data);
+    }
+  };
 
   useEffect(() => {
     if (!isSessionActive || !sessionStartTime) return;
@@ -112,44 +131,89 @@ const Dashboard = () => {
   ]);
 
   const handleStartSession = async () => {
-    if (!materialName.trim()) {
+    // Check if using existing material or new material
+    if (selectedMaterialId) {
+      // Using existing material
+      const selectedMaterial = existingMaterials.find(m => m.id === selectedMaterialId);
+      if (!selectedMaterial) {
+        toast({
+          title: "Error",
+          description: "Selected material not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("sessions")
+        .insert({
+          user_id: user.id,
+          material_name: selectedMaterial.name,
+          material_category: selectedMaterial.category,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to start session",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSessionId(data.id);
+      setSessionStartTime(new Date());
+      setIsSessionActive(true);
+      setFocusData([]);
+      setDistractionCount(0);
+
       toast({
-        title: "Material Required",
-        description: "Please enter what you're studying",
-        variant: "destructive",
+        title: "Session Started! 🚀",
+        description: `Studying ${selectedMaterial.name}`,
       });
-      return;
+    } else {
+      // Using new material name
+      if (!materialName.trim()) {
+        toast({
+          title: "Material Required",
+          description: "Please select an existing material or enter a new one",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("sessions")
+        .insert({
+          user_id: user.id,
+          material_name: materialName,
+          material_category: materialCategory,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to start session",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSessionId(data.id);
+      setSessionStartTime(new Date());
+      setIsSessionActive(true);
+      setFocusData([]);
+      setDistractionCount(0);
+
+      toast({
+        title: "Session Started! 🚀",
+        description: "Your study session has begun",
+      });
     }
-
-    const { data, error } = await supabase
-      .from("sessions")
-      .insert({
-        user_id: user.id,
-        material_name: materialName,
-        material_category: materialCategory,
-      })
-      .select()
-      .single();
-
-    if (error) {
-    toast({
-      title: "Error",
-      description: "Failed to start session",
-      variant: "destructive",
-    });
-      return;
-    }
-
-    setSessionId(data.id);
-    setSessionStartTime(new Date());
-    setIsSessionActive(true);
-    setFocusData([]);
-    setDistractionCount(0);
-
-    toast({
-      title: "Session Started",
-      description: "Your study session has begun",
-    });
   };
 
   const handleEndSession = async () => {
@@ -379,43 +443,99 @@ const Dashboard = () => {
 
             {!isSessionActive && (
               <>
-                <Card className="shadow-card bg-gradient-to-br from-accent/10 to-primary/10 border-2 border-accent/20">
+                <Card className="shadow-card animate-bounce-in bg-gradient-to-br from-accent/10 to-primary/10 border-2 border-accent/20">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <BookOpen className="w-5 h-5 text-accent" />
-                      Study Material Tracker
-                    </CardTitle>
-                    <CardDescription>
-                      Tell us what you're studying today
-                    </CardDescription>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <BookOpen className="w-5 h-5 text-accent animate-wiggle" />
+                          Study Material Tracker
+                        </CardTitle>
+                        <CardDescription>
+                          Select an existing material or create a new one
+                        </CardDescription>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate("/materials")}
+                        className="gap-2 animate-pulse-glow"
+                      >
+                        <BookOpen className="w-4 h-4" />
+                        Manage Materials
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {existingMaterials.length > 0 && (
+                      <div className="space-y-2">
+                        <Label htmlFor="existingMaterial">Select Existing Material</Label>
+                        <Select value={selectedMaterialId} onValueChange={(value) => {
+                          setSelectedMaterialId(value);
+                          if (value) {
+                            setMaterialName("");
+                          }
+                        }}>
+                          <SelectTrigger id="existingMaterial">
+                            <SelectValue placeholder="Choose from your materials..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">None (create new)</SelectItem>
+                            {existingMaterials.map((material) => (
+                              <SelectItem key={material.id} value={material.id}>
+                                {material.name} ({material.category})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-muted" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-card px-2 text-muted-foreground">Or create new</span>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="materialCategory">Category</Label>
-                      <Select value={materialCategory} onValueChange={setMaterialCategory}>
+                      <Select 
+                        value={materialCategory} 
+                        onValueChange={setMaterialCategory}
+                        disabled={!!selectedMaterialId}
+                      >
                         <SelectTrigger id="materialCategory">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Mathematics">Mathematics</SelectItem>
                           <SelectItem value="Science">Science</SelectItem>
-                          <SelectItem value="Language">Language</SelectItem>
-                          <SelectItem value="History">History</SelectItem>
+                          <SelectItem value="Languages">Languages</SelectItem>
+                          <SelectItem value="Social Studies">Social Studies</SelectItem>
+                          <SelectItem value="Arts">Arts</SelectItem>
                           <SelectItem value="Programming">Programming</SelectItem>
-                          <SelectItem value="Art">Art</SelectItem>
-                          <SelectItem value="Music">Music</SelectItem>
-                          <SelectItem value="Business">Business</SelectItem>
                           <SelectItem value="Other">Other</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="materialName">What are you studying?</Label>
+                      <Label htmlFor="materialName">Material / Topic Name</Label>
                       <Input
                         id="materialName"
-                        placeholder="e.g., Calculus Chapter 5, Python Functions..."
+                        placeholder="e.g., Calculus Chapter 5, Spanish Verbs..."
                         value={materialName}
-                        onChange={(e) => setMaterialName(e.target.value)}
+                        onChange={(e) => {
+                          setMaterialName(e.target.value);
+                          if (e.target.value) {
+                            setSelectedMaterialId("");
+                          }
+                        }}
+                        disabled={!!selectedMaterialId}
+                        className="transition-all focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                   </CardContent>

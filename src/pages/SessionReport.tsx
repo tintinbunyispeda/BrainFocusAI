@@ -73,16 +73,15 @@ const SessionReport = () => {
     const score = session.skor_rata || 0;
     let base = "";
 
-    if (studyType === "practice") {
-      base += "You used practice questions, which is one of the most effective study methods. ";
-    } else if (studyType === "summarizing") {
-      base += "Summarizing in your own words helps you understand and remember concepts. ";
-    } else if (studyType === "teaching") {
-      base += "Teaching or explaining to others is a powerful way to test deep understanding. ";
-    } else if (studyType === "mixed") {
-      base += "Mixing methods is great – just make sure most of your time is active, not only reading. ";
+    // Learning style insights (VARK)
+    if (studyType === "visual") {
+      base += "As a Visual learner, you learn best with diagrams, charts, and visual representations. Keep using visual materials! ";
+    } else if (studyType === "auditori") {
+      base += "As an Auditory learner, listening to lectures and discussions works best for you. Continue using audio resources! ";
+    } else if (studyType === "kinestetik") {
+      base += "As a Kinesthetic learner, hands-on practice is crucial for you. Keep doing practical exercises! ";
     } else {
-      base += "Reading alone can feel passive – try adding practice questions or summaries next time. ";
+      base += "As a Read/Write learner, you excel with written materials. Continue reading and note-taking! ";
     }
 
     const clarityNum = parseInt(materialClarity);
@@ -309,21 +308,21 @@ const SessionReport = () => {
           </CardContent>
         </Card>
 
-        {/* Study Method Reflection */}
-        <Card className="shadow-glow border-2 border-primary/20">
+        {/* Learning Style Survey (VARK) */}
+        <Card className="shadow-glow border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-primary" />
-              Study Method Analysis
+              Discover Your Learning Style 🎓
             </CardTitle>
             <CardDescription>
-              Answer these questions to understand which study methods work best for you
+              Answer these questions to identify how you learn best (VARK Model: Visual, Auditory, Kinesthetic, Read/Write)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <label className="text-sm font-medium flex items-center gap-2">
-                1. What was your main study method?
+                1. When learning something new, you prefer to:
                 <HelpCircle className="w-3 h-3 text-muted-foreground" />
               </label>
               <select
@@ -331,14 +330,13 @@ const SessionReport = () => {
                 onChange={(e) => setStudyType(e.target.value)}
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm transition-all hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
-                <option value="reading">Reading / watching only</option>
-                <option value="practice">Practice questions / exercises</option>
-                <option value="summarizing">Summarizing / note-making</option>
-                <option value="teaching">Teaching / explaining to others</option>
-                <option value="mixed">Mixed methods</option>
+                <option value="visual">Look at diagrams, charts, or videos (Visual Learner 👁️)</option>
+                <option value="auditori">Listen to lectures, podcasts, or discussions (Auditory Learner 👂)</option>
+                <option value="kinestetik">Do hands-on activities, experiments, or practice (Kinesthetic Learner ✋)</option>
+                <option value="readwrite">Read books, notes, or write summaries (Read/Write Learner 📝)</option>
               </select>
               <p className="text-xs text-muted-foreground">
-                💡 Active methods (practice, summarizing, teaching) are usually more effective than passive reading
+                💡 Identifying your learning style helps you choose the most effective study methods
               </p>
             </div>
 

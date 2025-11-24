@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Brain, LayoutDashboard, History, User, LogOut, TrendingUp, Target } from "lucide-react";
+import { Brain, LayoutDashboard, History, User, LogOut, TrendingUp, Target, BookOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const Navbar = () => {
@@ -14,6 +14,7 @@ const Navbar = () => {
 
   const navItems = [
     { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { path: "/materials", icon: BookOpen, label: "Materials" },
     { path: "/history", icon: History, label: "History" },
     { path: "/analytics", icon: TrendingUp, label: "Analytics" },
     { path: "/goals", icon: Target, label: "Goals" },

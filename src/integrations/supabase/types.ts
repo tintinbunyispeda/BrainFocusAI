@@ -207,6 +207,51 @@ export type Database = {
         }
         Relationships: []
       }
+      study_materials: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          progress_percentage: number | null
+          target_hours: number | null
+          total_duration: number | null
+          total_focus_score: number | null
+          total_sessions: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          progress_percentage?: number | null
+          target_hours?: number | null
+          total_duration?: number | null
+          total_focus_score?: number | null
+          total_sessions?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          progress_percentage?: number | null
+          target_hours?: number | null
+          total_duration?: number | null
+          total_focus_score?: number | null
+          total_sessions?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
