@@ -50,28 +50,66 @@ export const useFaceDetection = (
       if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
         const landmarks = results.multiFaceLandmarks[0];
         
-        // Calculate gaze direction based on eye landmarks
+        // Key facial landmarks for better tracking
         const leftEye = landmarks[33];
         const rightEye = landmarks[263];
         const noseTip = landmarks[1];
-
+        const chin = landmarks[152];
+        const foreheadCenter = landmarks[10];
+        
+        // Calculate face center and eye center
+        const faceCenter = {
+          x: (leftEye.x + rightEye.x + noseTip.x + chin.x) / 4,
+          y: (leftEye.y + rightEye.y + noseTip.y + chin.y) / 4,
+        };
+        
         const eyeCenter = {
           x: (leftEye.x + rightEye.x) / 2,
           y: (leftEye.y + rightEye.y) / 2,
         };
 
+        // Calculate head pose angles
         const gazeX = noseTip.x - eyeCenter.x;
         const gazeY = noseTip.y - eyeCenter.y;
+        
+        // Calculate face tilt (vertical alignment)
+        const faceHeight = Math.abs(foreheadCenter.y - chin.y);
+        const verticalAlignment = Math.abs(noseTip.x - faceCenter.x);
+        
+        // More precise thresholds for focus detection
+        const horizontalThreshold = 0.035; // Looking left/right
+        const verticalThreshold = 0.04;    // Looking up/down
+        const tiltThreshold = 0.05;         // Head tilt tolerance
 
         let direction = "center";
         let score = 100;
-
-        if (Math.abs(gazeX) > 0.02) {
+        
+        // Check horizontal gaze (left/right)
+        if (Math.abs(gazeX) > horizontalThreshold) {
           direction = gazeX > 0 ? "right" : "left";
-          score = Math.max(0, 100 - Math.abs(gazeX) * 1000);
-        } else if (Math.abs(gazeY) > 0.02) {
+          const deviation = Math.abs(gazeX) - horizontalThreshold;
+          score = Math.max(30, 100 - (deviation * 1500));
+        } 
+        // Check vertical gaze (up/down)
+        else if (Math.abs(gazeY) > verticalThreshold) {
           direction = gazeY > 0 ? "down" : "up";
-          score = Math.max(0, 100 - Math.abs(gazeY) * 1000);
+          const deviation = Math.abs(gazeY) - verticalThreshold;
+          score = Math.max(30, 100 - (deviation * 1200));
+        }
+        // Check head tilt
+        else if (verticalAlignment > tiltThreshold) {
+          direction = "tilted";
+          score = Math.max(50, 100 - (verticalAlignment * 800));
+        }
+        // Face is properly aligned - give high focus score
+        else {
+          direction = "center";
+          score = 100;
+        }
+        
+        // Bonus points for face stability and proper positioning
+        if (faceHeight > 0.3 && faceHeight < 0.7) {
+          score = Math.min(100, score + 5); // Face is at good distance
         }
 
         setResult({

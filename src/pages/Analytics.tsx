@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { TrendingUp, Calendar, Clock, Eye, Award, Activity, HelpCircle } from "lucide-react";
+import { TrendingUp, Calendar, Clock, Eye, Award, Activity, HelpCircle, BookOpen } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 const Analytics = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
+  const [materialStats, setMaterialStats] = useState<any[]>([]);
   const [monthlyStats, setMonthlyStats] = useState({
     totalSessions: 0,
     totalMinutes: 0,
@@ -106,6 +107,30 @@ const Analytics = () => {
         bestDay,
         streak,
       });
+
+      // Calculate material-based statistics
+      const materialData: { [key: string]: { sessions: number; minutes: number; avgScore: number } } = {};
+      
+      sessions.forEach((session) => {
+        const material = session.material_category || "Unspecified";
+        
+        if (!materialData[material]) {
+          materialData[material] = { sessions: 0, minutes: 0, avgScore: 0 };
+        }
+        
+        materialData[material].sessions += 1;
+        materialData[material].minutes += Math.floor((session.durasi_efektif || 0) / 60);
+        materialData[material].avgScore += session.skor_rata || 0;
+      });
+
+      const materialChartData = Object.entries(materialData).map(([material, data]) => ({
+        material,
+        sessions: data.sessions,
+        minutes: data.minutes,
+        avgScore: Math.round(data.avgScore / data.sessions),
+      })).sort((a, b) => b.minutes - a.minutes);
+
+      setMaterialStats(materialChartData);
     }
 
     setLoading(false);
@@ -298,6 +323,46 @@ const Analytics = () => {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+
+          {/* Material-Based Analytics */}
+          {materialStats.length > 0 && (
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-accent" />
+                  Study Material Breakdown
+                  <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                </CardTitle>
+                <CardDescription>See which subjects you're focusing on most - balance your study time across different materials</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={materialStats}>
+                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                    <XAxis dataKey="material" />
+                    <YAxis />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: "hsl(var(--card))", 
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px"
+                      }}
+                    />
+                    <Bar dataKey="minutes" fill="hsl(var(--accent))" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+                <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {materialStats.map((stat, idx) => (
+                    <div key={idx} className="p-3 rounded-lg bg-muted/50 border border-border">
+                      <p className="text-sm font-medium">{stat.material}</p>
+                      <p className="text-xs text-muted-foreground">{stat.sessions} sessions</p>
+                      <p className="text-xs text-success">Avg Score: {stat.avgScore}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Insights */}
           <Card className="shadow-card bg-gradient-secondary text-white border-0">

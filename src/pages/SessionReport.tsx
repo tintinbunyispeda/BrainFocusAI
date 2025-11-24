@@ -156,6 +156,21 @@ const SessionReport = () => {
 
         {/* Stats Cards */}
         <div className="grid md:grid-cols-4 gap-4">
+          {session.material_name && (
+            <Card className="shadow-card hover:shadow-glow transition-all duration-300 hover:-translate-y-1 md:col-span-4 bg-gradient-to-br from-accent/10 to-primary/10 border-2 border-accent/20">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-accent" />
+                  <CardTitle className="text-sm">Study Material</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xl font-bold">{session.material_name}</p>
+                <p className="text-sm text-muted-foreground mt-1">Category: {session.material_category || "Not specified"}</p>
+              </CardContent>
+            </Card>
+          )}
+          
           <Card className="shadow-card hover:shadow-glow transition-all duration-300 hover:-translate-y-1">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">

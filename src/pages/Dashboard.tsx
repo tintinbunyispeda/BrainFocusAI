@@ -3,9 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useFaceDetection } from "@/hooks/useFaceDetection";
-import { Play, Square, Brain, Eye, Activity, AlertTriangle } from "lucide-react";
+import { Play, Square, Brain, Eye, Activity, AlertTriangle, BookOpen } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import Navbar from "@/components/Navbar";
 
@@ -22,6 +25,8 @@ const Dashboard = () => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [focusData, setFocusData] = useState<any[]>([]);
   const [distractionCount, setDistractionCount] = useState(0);
+  const [materialName, setMaterialName] = useState("");
+  const [materialCategory, setMaterialCategory] = useState("Mathematics");
 
   const faceDetection = useFaceDetection(videoRef, canvasRef, isSessionActive);
 
@@ -107,10 +112,21 @@ const Dashboard = () => {
   ]);
 
   const handleStartSession = async () => {
+    if (!materialName.trim()) {
+      toast({
+        title: "Material Required",
+        description: "Please enter what you're studying",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const { data, error } = await supabase
       .from("sessions")
       .insert({
         user_id: user.id,
+        material_name: materialName,
+        material_category: materialCategory,
       })
       .select()
       .single();
@@ -362,37 +378,85 @@ const Dashboard = () => {
             )}
 
             {!isSessionActive && (
-              <Card className="shadow-card bg-gradient-to-br from-primary/10 to-secondary/10 border-2 border-primary/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-primary" />
-                    Ready to Focus?
-                  </CardTitle>
-                  <CardDescription>
-                    Click the button above to start your session
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-start gap-2">
-                      <span className="text-primary">✓</span>
-                      <p>Make sure your camera is working</p>
+              <>
+                <Card className="shadow-card bg-gradient-to-br from-accent/10 to-primary/10 border-2 border-accent/20">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BookOpen className="w-5 h-5 text-accent" />
+                      Study Material Tracker
+                    </CardTitle>
+                    <CardDescription>
+                      Tell us what you're studying today
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="materialCategory">Category</Label>
+                      <Select value={materialCategory} onValueChange={setMaterialCategory}>
+                        <SelectTrigger id="materialCategory">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Mathematics">Mathematics</SelectItem>
+                          <SelectItem value="Science">Science</SelectItem>
+                          <SelectItem value="Language">Language</SelectItem>
+                          <SelectItem value="History">History</SelectItem>
+                          <SelectItem value="Programming">Programming</SelectItem>
+                          <SelectItem value="Art">Art</SelectItem>
+                          <SelectItem value="Music">Music</SelectItem>
+                          <SelectItem value="Business">Business</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-primary">✓</span>
-                      <p>Position your face in center of frame</p>
+                    <div className="space-y-2">
+                      <Label htmlFor="materialName">What are you studying?</Label>
+                      <Input
+                        id="materialName"
+                        placeholder="e.g., Calculus Chapter 5, Python Functions..."
+                        value={materialName}
+                        onChange={(e) => setMaterialName(e.target.value)}
+                      />
                     </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-primary">✓</span>
-                      <p>System auto-saves every second</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-card bg-gradient-to-br from-primary/10 to-secondary/10 border-2 border-primary/20">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Brain className="w-5 h-5 text-primary" />
+                      Ready to Focus?
+                    </CardTitle>
+                    <CardDescription>
+                      Enter your material above, then start your session
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-start gap-2">
+                        <span className="text-primary">✓</span>
+                        <p>Make sure your camera is working</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-primary">✓</span>
+                        <p>Position your face in center of frame</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-primary">✓</span>
+                        <p>Look directly at the screen for best results</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-primary">✓</span>
+                        <p>System tracks your focus every second</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-primary">✓</span>
+                        <p>Turn off notifications for max focus</p>
+                      </div>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-primary">✓</span>
-                      <p>Turn off notifications for max focus</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </>
             )}
           </div>
         </div>

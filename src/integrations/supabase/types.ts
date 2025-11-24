@@ -140,6 +140,8 @@ export type Database = {
           created_at: string
           durasi_efektif: number | null
           id: string
+          material_category: string | null
+          material_name: string | null
           mulai: string
           selesai: string | null
           skor_rata: number | null
@@ -150,6 +152,8 @@ export type Database = {
           created_at?: string
           durasi_efektif?: number | null
           id?: string
+          material_category?: string | null
+          material_name?: string | null
           mulai?: string
           selesai?: string | null
           skor_rata?: number | null
@@ -160,6 +164,8 @@ export type Database = {
           created_at?: string
           durasi_efektif?: number | null
           id?: string
+          material_category?: string | null
+          material_name?: string | null
           mulai?: string
           selesai?: string | null
           skor_rata?: number | null
