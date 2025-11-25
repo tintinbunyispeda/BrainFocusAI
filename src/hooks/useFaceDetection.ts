@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { FaceMesh } from "@mediapipe/face_mesh";
-import { Camera } from "@mediapipe/camera_utils";
+import * as FaceMeshModule from "@mediapipe/face_mesh";
+import * as CameraModule from "@mediapipe/camera_utils";
 
 interface FaceDetectionResult {
   isFaceDetected: boolean;
@@ -20,13 +20,13 @@ export const useFaceDetection = (
     focusScore: 0,
     distractionType: null,
   });
-  const faceMeshRef = useRef<FaceMesh | null>(null);
-  const cameraRef = useRef<Camera | null>(null);
+  const faceMeshRef = useRef<FaceMeshModule.FaceMesh | null>(null);
+  const cameraRef = useRef<CameraModule.Camera | null>(null);
 
   useEffect(() => {
     if (!isActive || !videoRef.current || !canvasRef.current) return;
 
-    const faceMesh = new FaceMesh({
+    const faceMesh = new FaceMeshModule.FaceMesh({
       locateFile: (file) =>
         `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
     });
@@ -160,7 +160,7 @@ export const useFaceDetection = (
       ctx.restore();
     });
 
-    const camera = new Camera(videoRef.current, {
+    const camera = new CameraModule.Camera(videoRef.current, {
       onFrame: async () => {
         if (videoRef.current) {
           await faceMesh.send({ image: videoRef.current });
