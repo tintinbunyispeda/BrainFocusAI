@@ -6,6 +6,7 @@ interface FaceDetectionResult {
   isFaceDetected: boolean;
   gazeDirection: string;
   focusScore: number;
+  distractionType: string | null;
 }
 
 export const useFaceDetection = (
@@ -17,6 +18,7 @@ export const useFaceDetection = (
     isFaceDetected: false,
     gazeDirection: "center",
     focusScore: 0,
+    distractionType: null,
   });
   const faceMeshRef = useRef<FaceMesh | null>(null);
   const cameraRef = useRef<Camera | null>(null);
@@ -76,34 +78,46 @@ export const useFaceDetection = (
         const faceHeight = Math.abs(foreheadCenter.y - chin.y);
         const verticalAlignment = Math.abs(noseTip.x - faceCenter.x);
         
-        // More precise thresholds for focus detection
-        const horizontalThreshold = 0.035; // Looking left/right
-        const verticalThreshold = 0.04;    // Looking up/down
-        const tiltThreshold = 0.05;         // Head tilt tolerance
+        // More forgiving thresholds for better accuracy
+        const horizontalThreshold = 0.055; // Looking left/right - more forgiving
+        const verticalThreshold = 0.065;    // Looking up/down - more forgiving
+        const tiltThreshold = 0.075;         // Head tilt tolerance - more forgiving
+        const phoneThreshold = 0.12;         // Looking down at phone
 
         let direction = "center";
         let score = 100;
+        let distraction: string | null = null;
         
+        // Check for phone usage (looking down significantly)
+        if (gazeY > phoneThreshold) {
+          direction = "down";
+          distraction = "looking_down_phone";
+          score = Math.max(20, 100 - ((gazeY - phoneThreshold) * 800));
+        }
         // Check horizontal gaze (left/right)
-        if (Math.abs(gazeX) > horizontalThreshold) {
+        else if (Math.abs(gazeX) > horizontalThreshold) {
           direction = gazeX > 0 ? "right" : "left";
+          distraction = gazeX > 0 ? "looking_away_right" : "looking_away_left";
           const deviation = Math.abs(gazeX) - horizontalThreshold;
-          score = Math.max(30, 100 - (deviation * 1500));
+          score = Math.max(40, 100 - (deviation * 1000));
         } 
         // Check vertical gaze (up/down)
         else if (Math.abs(gazeY) > verticalThreshold) {
           direction = gazeY > 0 ? "down" : "up";
+          distraction = gazeY > 0 ? "looking_down" : "looking_up";
           const deviation = Math.abs(gazeY) - verticalThreshold;
-          score = Math.max(30, 100 - (deviation * 1200));
+          score = Math.max(40, 100 - (deviation * 900));
         }
         // Check head tilt
         else if (verticalAlignment > tiltThreshold) {
           direction = "tilted";
-          score = Math.max(50, 100 - (verticalAlignment * 800));
+          distraction = "head_tilted";
+          score = Math.max(60, 100 - (verticalAlignment * 600));
         }
         // Face is properly aligned - give high focus score
         else {
           direction = "center";
+          distraction = null;
           score = 100;
         }
         
@@ -116,6 +130,7 @@ export const useFaceDetection = (
           isFaceDetected: true,
           gazeDirection: direction,
           focusScore: Math.round(score),
+          distractionType: distraction,
         });
 
         // Draw face mesh
@@ -138,6 +153,7 @@ export const useFaceDetection = (
           isFaceDetected: false,
           gazeDirection: "unknown",
           focusScore: 0,
+          distractionType: "face_not_detected",
         });
       }
 

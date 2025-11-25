@@ -104,6 +104,17 @@ const Dashboard = () => {
         arah_tatapan: faceDetection.gazeDirection,
         status_wajah: "detected",
       }).then();
+
+      // Log distraction if detected (even when face is detected but not focused)
+      if (faceDetection.distractionType) {
+        setDistractionCount((prev) => prev + 1);
+        
+        supabase.from("distractions").insert({
+          session_id: sessionId,
+          jenis: faceDetection.distractionType,
+          durasi: 1,
+        }).then();
+      }
     } else {
       supabase.from("focus_details").insert({
         session_id: sessionId,
@@ -117,7 +128,7 @@ const Dashboard = () => {
 
       supabase.from("distractions").insert({
         session_id: sessionId,
-        jenis: "face_not_detected",
+        jenis: faceDetection.distractionType || "face_not_detected",
         durasi: 1,
       }).then();
     }

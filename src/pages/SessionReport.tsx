@@ -278,27 +278,44 @@ const SessionReport = () => {
           <CardContent>
             {distractions.length > 0 ? (
               <div className="space-y-2">
-                {distractions.map((distraction, idx) => (
-                  <div
-                    key={distraction.id}
-                    className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
-                    style={{ animationDelay: `${idx * 50}ms` }}
-                  >
-                    <div>
-                      <p className="font-medium capitalize">
-                        {distraction.jenis.replace("_", " ")}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(distraction.waktu)}
-                      </p>
+                {distractions.map((distraction, idx) => {
+                  const getDistractionLabel = (type: string) => {
+                    const labels: Record<string, { label: string; emoji: string }> = {
+                      "looking_down_phone": { label: "Using Phone / Looking Down", emoji: "📱" },
+                      "looking_away_left": { label: "Looking Away Left", emoji: "👈" },
+                      "looking_away_right": { label: "Looking Away Right", emoji: "👉" },
+                      "looking_down": { label: "Looking Down", emoji: "⬇️" },
+                      "looking_up": { label: "Looking Up", emoji: "⬆️" },
+                      "head_tilted": { label: "Head Tilted", emoji: "🔄" },
+                      "face_not_detected": { label: "Face Not Visible", emoji: "👤" },
+                    };
+                    return labels[type] || { label: type.replace("_", " "), emoji: "⚠️" };
+                  };
+                  
+                  const { label, emoji } = getDistractionLabel(distraction.jenis);
+                  
+                  return (
+                    <div
+                      key={distraction.id}
+                      className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                      style={{ animationDelay: `${idx * 50}ms` }}
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {emoji} {label}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDate(distraction.waktu)}
+                        </p>
+                      </div>
+                      {distraction.durasi && (
+                        <span className="text-sm text-muted-foreground">
+                          {distraction.durasi}s
+                        </span>
+                      )}
                     </div>
-                    {distraction.durasi && (
-                      <span className="text-sm text-muted-foreground">
-                        {distraction.durasi}s
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8">
