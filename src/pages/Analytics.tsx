@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { TrendingUp, Calendar, Clock, Eye, Award, Activity, HelpCircle, BookOpen } from "lucide-react";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { TrendingUp, Calendar, Clock, Eye, Award, Activity, HelpCircle, BookOpen, AlertTriangle, Target } from "lucide-react";
 import Navbar from "@/components/Navbar";
 
 const Analytics = () => {
@@ -11,12 +11,15 @@ const Analytics = () => {
   const [loading, setLoading] = useState(true);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [materialStats, setMaterialStats] = useState<any[]>([]);
+  const [distractionStats, setDistractionStats] = useState<any[]>([]);
+  const [focusImprovement, setFocusImprovement] = useState<any[]>([]);
   const [monthlyStats, setMonthlyStats] = useState({
     totalSessions: 0,
     totalMinutes: 0,
     avgScore: 0,
     bestDay: "",
     streak: 0,
+    totalDistractions: 0,
   });
 
   useEffect(() => {
@@ -100,12 +103,77 @@ const Analytics = () => {
         }
       }
 
+      // Get distraction data
+      const sessionIds = sessions.map(s => s.id);
+      const { data: distractions } = await supabase
+        .from("distractions")
+        .select("*")
+        .in("session_id", sessionIds);
+
+      const totalDistractions = distractions?.length || 0;
+
+      // Analyze distraction types
+      const distractionTypeData: { [key: string]: number } = {};
+      distractions?.forEach((d) => {
+        const type = d.jenis || "unknown";
+        distractionTypeData[type] = (distractionTypeData[type] || 0) + 1;
+      });
+
+      const distractionChartData = Object.entries(distractionTypeData).map(([type, count]) => ({
+        type: type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        count,
+      })).sort((a, b) => b.count - a.count);
+
+      setDistractionStats(distractionChartData);
+
+      // Calculate focus improvement over time (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { data: allSessions } = await supabase
+        .from("sessions")
+        .select("*")
+        .eq("user_id", user.id)
+        .gte("mulai", thirtyDaysAgo.toISOString())
+        .order("mulai", { ascending: true });
+
+      if (allSessions && allSessions.length > 0) {
+        // Group by week
+        const weeklyImprovement: { [key: string]: { scores: number[]; week: string } } = {};
+        
+        allSessions.forEach((session) => {
+          const date = new Date(session.mulai);
+          const weekStart = new Date(date);
+          weekStart.setDate(date.getDate() - date.getDay());
+          const weekKey = weekStart.toISOString().split('T')[0];
+          
+          if (!weeklyImprovement[weekKey]) {
+            weeklyImprovement[weekKey] = { 
+              scores: [], 
+              week: `Week ${Object.keys(weeklyImprovement).length + 1}` 
+            };
+          }
+          
+          if (session.skor_rata) {
+            weeklyImprovement[weekKey].scores.push(session.skor_rata);
+          }
+        });
+
+        const improvementData = Object.values(weeklyImprovement).map((data) => ({
+          week: data.week,
+          avgScore: Math.round(data.scores.reduce((a, b) => a + b, 0) / data.scores.length),
+        }));
+
+        setFocusImprovement(improvementData);
+      }
+
       setMonthlyStats({
         totalSessions,
         totalMinutes,
         avgScore,
         bestDay,
         streak,
+        totalDistractions,
       });
 
       // Calculate material-based statistics
@@ -363,6 +431,101 @@ const Analytics = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* Focus Improvement Trend */}
+          {focusImprovement.length > 0 && (
+            <Card className="shadow-glow border-2 border-success/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-success" />
+                  Focus Improvement Trend
+                  <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                </CardTitle>
+                <CardDescription>Your focus is getting better over time! 📈 Track your progress week by week</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={focusImprovement}>
+                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                    <XAxis dataKey="week" />
+                    <YAxis domain={[0, 100]} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: "hsl(var(--card))", 
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px"
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="avgScore"
+                      stroke="hsl(var(--success))"
+                      strokeWidth={4}
+                      dot={{ r: 8, fill: "hsl(var(--success))" }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+                <div className="mt-4 p-4 rounded-lg bg-success/10 border border-success/30">
+                  <p className="text-sm font-medium text-success flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    {focusImprovement.length > 1 && focusImprovement[focusImprovement.length - 1].avgScore > focusImprovement[0].avgScore
+                      ? `Great job! Your focus improved by ${focusImprovement[focusImprovement.length - 1].avgScore - focusImprovement[0].avgScore} points! 🎉`
+                      : "Keep practicing! Consistency leads to improvement 💪"
+                    }
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Distraction Analytics */}
+          {distractionStats.length > 0 && (
+            <Card className="shadow-card border-2 border-destructive/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-destructive" />
+                  Distraction Pattern Analysis
+                  <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                </CardTitle>
+                <CardDescription>Understanding your distractions helps you avoid them! Total: {monthlyStats.totalDistractions} distractions detected</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={distractionStats} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                    <XAxis type="number" />
+                    <YAxis dataKey="type" type="category" width={150} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: "hsl(var(--card))", 
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px"
+                      }}
+                    />
+                    <Bar dataKey="count" fill="hsl(var(--destructive))" radius={[0, 8, 8, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+                
+                <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/30">
+                  <p className="text-sm font-medium mb-2">💡 Tips to Reduce Distractions:</p>
+                  <ul className="text-sm space-y-1 text-muted-foreground">
+                    {distractionStats[0]?.type.includes('Phone') && (
+                      <li>• Keep your phone in another room or use app blockers</li>
+                    )}
+                    {distractionStats[0]?.type.includes('Looking Away') && (
+                      <li>• Minimize visual distractions in your study area</li>
+                    )}
+                    {distractionStats[0]?.type.includes('Not Visible') && (
+                      <li>• Stay in frame and maintain good posture while studying</li>
+                    )}
+                    <li>• Take regular breaks to avoid mental fatigue</li>
+                    <li>• Use the Pomodoro technique: 25 min focus + 5 min break</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
 
           {/* Insights */}
           <Card className="shadow-card bg-gradient-secondary text-white border-0">

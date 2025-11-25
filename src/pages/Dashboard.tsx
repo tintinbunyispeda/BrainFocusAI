@@ -29,6 +29,8 @@ const Dashboard = () => {
   const [materialCategory, setMaterialCategory] = useState("Mathematics");
   const [existingMaterials, setExistingMaterials] = useState<any[]>([]);
   const [selectedMaterialId, setSelectedMaterialId] = useState<string>("");
+  const [lowFocusAlertShown, setLowFocusAlertShown] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const faceDetection = useFaceDetection(videoRef, canvasRef, isSessionActive);
 
@@ -95,6 +97,34 @@ const Dashboard = () => {
       },
     ]);
 
+    // Focus alert system - only alert if sustained low focus
+    if (faceDetection.focusScore < 50 && !lowFocusAlertShown && elapsedTime > 10) {
+      // Check last 5 data points for sustained low focus
+      const recentScores = focusData.slice(-5).map(d => d.score);
+      const avgRecentScore = recentScores.length > 0 
+        ? recentScores.reduce((a, b) => a + b, 0) / recentScores.length 
+        : faceDetection.focusScore;
+
+      if (avgRecentScore < 50) {
+        // Play alert sound
+        if (!audioRef.current) {
+          audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZSA8PVq3n77BdGgxJouHwwHInBSuBzvLaiTcIGWi77eefTRAMUKfj8LZjHAY4kdfyznksBS1+zu/glEQME1yw6O+nVRQKRp/g8r5sIQUxh9Hz04IzBh5uwO/jmUgPD1at5++wXRoMSaLh8MByJwUrgc7y2ok3CBlou+3nn00QDFCn4/C2YxwGOJHX8s55LAUtfs7v4JREDBNcsOjvp1UUCkaf4PK+bCEFMYfR89OCMwYebsDv45lIDw9WrefvsFkHDEmi4fDAcicFLIHO8tmJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LOeSwFLX7O7+CUQwwUXLDo76dVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZSA8PVq3n77BdGgxJouHwwHInBSyBzvLZiTcIGWi77eefTRAMUKfj8LZjHAY4kdfyznksBS1+zu/glEMMFFyw6O+nVRQKRp/g8r5sIQUxh9Hz04IzBh5uwO/jmUgPD1at5++wXRoMSaLh8MByJwUsgc7y2Yk3CBlou+3nn00QDFCn4/C2YxwGOJHX8s55LAUtfs7v4JREDBNcsOjvp1UUCkaf4PK+bCEFMYfR89OCMwYebsDv45lIDw9WrefvsF0aDEmi4fDAcicFLIHO8tmJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LOeSwFLX7O7+CUQwwUXLDo76dVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZSA8PVq3n77BdGgxJouHwwHInBSyBzvLZiTcIGWi77eefTRAMUKfj8LZjHAY4kdfyznksBS1+zu/glEMMFFyw6O+nVRQKRp/g8r5sIQUxh9Hz04IzBh5uwO/jmUgPD1at5++wXRoM');
+        }
+        audioRef.current?.play().catch(() => {});
+        
+        toast({
+          title: "⚠️ Focus Alert",
+          description: "Your focus is dropping. Take a deep breath and refocus!",
+          variant: "destructive",
+        });
+        
+        setLowFocusAlertShown(true);
+        
+        // Reset alert flag after 30 seconds
+        setTimeout(() => setLowFocusAlertShown(false), 30000);
+      }
+    }
+
     // Save to database
     if (faceDetection.isFaceDetected) {
       supabase.from("focus_details").insert({
@@ -105,8 +135,8 @@ const Dashboard = () => {
         status_wajah: "detected",
       }).then();
 
-      // Log distraction if detected (even when face is detected but not focused)
-      if (faceDetection.distractionType) {
+      // Log distraction only for significant distractions (score < 70)
+      if (faceDetection.distractionType && faceDetection.focusScore < 70) {
         setDistractionCount((prev) => prev + 1);
         
         supabase.from("distractions").insert({
@@ -139,6 +169,9 @@ const Dashboard = () => {
     faceDetection.focusScore,
     faceDetection.isFaceDetected,
     faceDetection.gazeDirection,
+    faceDetection.distractionType,
+    focusData,
+    lowFocusAlertShown,
   ]);
 
   const handleStartSession = async () => {
