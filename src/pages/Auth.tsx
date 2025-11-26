@@ -170,11 +170,11 @@ const Auth = () => {
         return;
       }
 
-      // Verify the OTP token
+      // Verify the OTP token using recovery type
       const { error: verifyError } = await supabase.auth.verifyOtp({
         email: data.email,
         token: data.token,
-        type: "magiclink",
+        type: "recovery",
       });
 
       if (verifyError) {

@@ -48,13 +48,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Generate a magic link for the user
+    // Generate a recovery link for the user (works better for programmatic auth)
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
+      type: "recovery",
       email: email.toLowerCase(),
-      options: {
-        redirectTo: `${req.headers.get("origin") || "https://localhost"}/dashboard`,
-      },
     });
 
     if (linkError || !linkData) {
