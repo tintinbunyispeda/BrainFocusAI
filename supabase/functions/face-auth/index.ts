@@ -48,10 +48,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Generate a recovery link for the user (works better for programmatic auth)
+    // Generate a magic link for the user
+    const origin = req.headers.get("origin") || "https://vcslxxkgbrtyfhwuyqpn.supabase.co";
+    
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "recovery",
+      type: "magiclink",
       email: email.toLowerCase(),
+      options: {
+        redirectTo: `${origin}/dashboard`,
+      },
     });
 
     if (linkError || !linkData) {
@@ -62,16 +67,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Use hashed_token which is the correct token for verifyOtp
-    const hashedToken = linkData.properties.hashed_token;
-
-    console.log("Generated token for face auth, email:", email.toLowerCase());
+    // Return the action_link for redirect-based auth
+    const actionLink = linkData.properties.action_link;
+    console.log("Generated magic link for face auth, email:", email.toLowerCase());
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        token: hashedToken,
-        type: "recovery",
+        action_link: actionLink,
         email: email.toLowerCase(),
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -153,7 +153,7 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      // Call edge function to get auth token
+      // Call edge function to get magic link
       const { data, error } = await supabase.functions.invoke("face-auth", {
         body: { email, user_id: userId },
       });
@@ -170,30 +170,14 @@ const Auth = () => {
         return;
       }
 
-      // Verify the OTP token using token_hash
-      const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-        email: data.email,
-        token: data.token,
-        type: "recovery",
-      });
-
-      if (verifyError) {
-        console.error("OTP verification error:", verifyError);
-        toast({
-          title: "Login Failed",
-          description: "Could not verify authentication. Please try email login.",
-          variant: "destructive",
-        });
-        setAuthMode("email");
-        setLoading(false);
-        return;
-      }
-
-      // Success - the auth state change listener will handle navigation
+      // Show success message before redirect
       toast({
-        title: "Welcome Back!",
-        description: "Face login successful!",
+        title: "Face Verified!",
+        description: "Logging you in...",
       });
+
+      // Redirect to the magic link - Supabase handles auth and redirects back
+      window.location.href = data.action_link;
     } catch (err) {
       console.error("Face login error:", err);
       toast({
@@ -202,9 +186,8 @@ const Auth = () => {
         variant: "destructive",
       });
       setAuthMode("email");
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   // Face Login Mode

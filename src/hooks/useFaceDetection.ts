@@ -246,68 +246,62 @@ export const useFaceDetection = (
         const absGazeX = Math.abs(smoothedGaze.x);
         const absGazeY = Math.abs(smoothedGaze.y);
         
-        // Determine focus state based on gaze
+        // Determine focus state - simplified distraction labels
         if (absGazeX <= horizontalThreshold && absGazeY <= verticalThreshold && verticalAlignment <= tiltThreshold) {
-          // Fully focused - looking at center
+          // Fully focused
           direction = "center";
           distraction = null;
           rawScore = 100;
           stableFrameCount.current++;
           consecutiveDistractionFrames.current = 0;
         } else if (smoothedGaze.y > phoneThreshold) {
-          // Looking down significantly - likely phone
+          // Looking down - phone
           direction = "down";
           consecutiveDistractionFrames.current++;
-          
           if (consecutiveDistractionFrames.current > 5) {
-            distraction = "looking_down_phone";
-            const severity = (smoothedGaze.y - phoneThreshold) / 0.1;
-            rawScore = Math.max(20, 60 - severity * 40);
+            distraction = "using phone";
+            rawScore = Math.max(20, 60 - (smoothedGaze.y - phoneThreshold) * 400);
           } else {
             rawScore = Math.max(50, 80 - consecutiveDistractionFrames.current * 5);
           }
           stableFrameCount.current = 0;
         } else if (absGazeX > extremeHorizontalThreshold) {
-          // Clearly looking away
+          // Looking away
           direction = smoothedGaze.x > 0 ? "right" : "left";
           consecutiveDistractionFrames.current++;
-          
           if (consecutiveDistractionFrames.current > 4) {
-            distraction = smoothedGaze.x > 0 ? "looking_away_right" : "looking_away_left";
+            distraction = "looking away";
             rawScore = Math.max(25, 55 - (absGazeX - extremeHorizontalThreshold) * 200);
           } else {
             rawScore = Math.max(45, 75 - consecutiveDistractionFrames.current * 6);
           }
           stableFrameCount.current = 0;
         } else if (absGazeX > moderateHorizontalThreshold) {
-          // Moderately looking away
+          // Slightly distracted
           direction = smoothedGaze.x > 0 ? "right" : "left";
           consecutiveDistractionFrames.current++;
-          
           if (consecutiveDistractionFrames.current > 8) {
-            distraction = smoothedGaze.x > 0 ? "looking_away_right" : "looking_away_left";
+            distraction = "distracted";
             rawScore = Math.max(40, 70 - (absGazeX - moderateHorizontalThreshold) * 150);
           } else {
             rawScore = Math.max(55, 85 - consecutiveDistractionFrames.current * 3);
           }
           stableFrameCount.current = Math.max(0, stableFrameCount.current - 1);
         } else if (absGazeX > horizontalThreshold) {
-          // Slightly off-center - might be reading across screen
+          // Minor gaze shift
           direction = smoothedGaze.x > 0 ? "right" : "left";
           rawScore = Math.max(70, 95 - (absGazeX - horizontalThreshold) * 100);
-          // Don't count as distraction if brief
           if (consecutiveDistractionFrames.current > 15) {
-            distraction = "slightly_distracted";
+            distraction = "wandering";
           }
           consecutiveDistractionFrames.current++;
         } else if (absGazeY > verticalThreshold) {
-          // Looking up or down
+          // Looking up/down
           direction = smoothedGaze.y > 0 ? "down" : "up";
-          
           if (absGazeY > phoneThreshold * 0.8) {
             consecutiveDistractionFrames.current++;
             if (consecutiveDistractionFrames.current > 6) {
-              distraction = smoothedGaze.y > 0 ? "looking_down" : "looking_up";
+              distraction = smoothedGaze.y > 0 ? "looking down" : "daydreaming";
               rawScore = Math.max(35, 65 - (absGazeY - verticalThreshold) * 200);
             } else {
               rawScore = Math.max(55, 80 - consecutiveDistractionFrames.current * 4);
@@ -322,7 +316,7 @@ export const useFaceDetection = (
           if (verticalAlignment > tiltThreshold * 2) {
             consecutiveDistractionFrames.current++;
             if (consecutiveDistractionFrames.current > 10) {
-              distraction = "head_tilted";
+              distraction = "resting";
               rawScore = Math.max(50, 75 - verticalAlignment * 200);
             }
           } else {
