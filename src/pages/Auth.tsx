@@ -170,8 +170,8 @@ const Auth = () => {
         return;
       }
 
-      // Verify the OTP token using recovery type
-      const { error: verifyError } = await supabase.auth.verifyOtp({
+      // Verify the OTP token using token_hash
+      const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
         email: data.email,
         token: data.token,
         type: "recovery",
@@ -181,7 +181,7 @@ const Auth = () => {
         console.error("OTP verification error:", verifyError);
         toast({
           title: "Login Failed",
-          description: "Could not verify authentication. Please try again.",
+          description: "Could not verify authentication. Please try email login.",
           variant: "destructive",
         });
         setAuthMode("email");
@@ -189,9 +189,9 @@ const Auth = () => {
         return;
       }
 
-      // Success - navigation will be handled by auth state change listener
+      // Success - the auth state change listener will handle navigation
       toast({
-        title: "Welcome Back! 🎉",
+        title: "Welcome Back!",
         description: "Face login successful!",
       });
     } catch (err) {

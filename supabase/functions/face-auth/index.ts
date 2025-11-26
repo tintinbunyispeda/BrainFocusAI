@@ -62,16 +62,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Extract the token from the magic link
-    const url = new URL(linkData.properties.action_link);
-    const token = url.searchParams.get("token");
-    const type = url.searchParams.get("type");
+    // Use hashed_token which is the correct token for verifyOtp
+    const hashedToken = linkData.properties.hashed_token;
+
+    console.log("Generated token for face auth, email:", email.toLowerCase());
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        token,
-        type,
+        token: hashedToken,
+        type: "recovery",
         email: email.toLowerCase(),
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
