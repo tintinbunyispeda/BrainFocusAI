@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Camera, CheckCircle, AlertCircle, Loader2, User, Mail } from "lucide-react";
 
 interface FaceLoginProps {
-  onSuccess: (email: string) => void;
+  onSuccess: (email: string, userId: string) => void;
   onCancel: () => void;
 }
 
@@ -22,6 +22,7 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
   const [message, setMessage] = useState("Position your face to login");
   const [userDescriptors, setUserDescriptors] = useState<any[]>([]);
   const [userName, setUserName] = useState<string>("");
+  const [userId, setUserId] = useState<string>("");
   const { toast } = useToast();
   
   const { 
@@ -102,6 +103,7 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
 
       setUserDescriptors(descriptors);
       setUserName(profile.nama);
+      setUserId(profile.id);
       setStep("face");
       setMessage(`Hi ${profile.nama}! Position your face to verify`);
     } catch (err) {
@@ -147,12 +149,12 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
         
         toast({
           title: "Face Verified! 🎉",
-          description: `Welcome back, ${userName}!`,
+          description: `Logging you in...`,
         });
         
         setTimeout(() => {
-          onSuccess(email);
-        }, 1500);
+          onSuccess(email, userId);
+        }, 1000);
       } else {
         setStatus("error");
         setMessage("Face not recognized. Please try again.");
@@ -166,7 +168,7 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
     }
     
     setIsScanning(false);
-  }, [isScanning, captureFaceDescriptor, findMatchingFace, userDescriptors, userName, email, toast, onSuccess]);
+  }, [isScanning, captureFaceDescriptor, findMatchingFace, userDescriptors, userName, userId, email, toast, onSuccess]);
 
   // Email Step
   if (step === "email") {
