@@ -149,15 +149,62 @@ const Auth = () => {
     setLoading(false);
   };
 
-  const handleFaceLoginSuccess = (email: string) => {
-    // Face was verified, now we need to navigate to dashboard
-    // Since Supabase requires proper auth, prompt for password
-    toast({
-      title: "Face Verified! 🎉",
-      description: "Please enter your password to complete login.",
-    });
-    setAuthMode("email");
-    // Pre-fill email in a future enhancement
+  const handleFaceLoginSuccess = async (email: string, userId: string) => {
+    setLoading(true);
+    
+    try {
+      // Call edge function to get auth token
+      const { data, error } = await supabase.functions.invoke("face-auth", {
+        body: { email, user_id: userId },
+      });
+
+      if (error || !data?.success) {
+        console.error("Face auth error:", error || data?.error);
+        toast({
+          title: "Authentication Failed",
+          description: data?.error || "Could not complete face login. Please try again.",
+          variant: "destructive",
+        });
+        setAuthMode("email");
+        setLoading(false);
+        return;
+      }
+
+      // Verify the OTP token
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: data.email,
+        token: data.token,
+        type: "magiclink",
+      });
+
+      if (verifyError) {
+        console.error("OTP verification error:", verifyError);
+        toast({
+          title: "Login Failed",
+          description: "Could not verify authentication. Please try again.",
+          variant: "destructive",
+        });
+        setAuthMode("email");
+        setLoading(false);
+        return;
+      }
+
+      // Success - navigation will be handled by auth state change listener
+      toast({
+        title: "Welcome Back! 🎉",
+        description: "Face login successful!",
+      });
+    } catch (err) {
+      console.error("Face login error:", err);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+      setAuthMode("email");
+    }
+    
+    setLoading(false);
   };
 
   // Face Login Mode
