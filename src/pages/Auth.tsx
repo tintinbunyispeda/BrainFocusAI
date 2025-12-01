@@ -216,12 +216,12 @@ const Auth = () => {
         {/* Left side - Branding */}
         <div className="hidden md:block space-y-6">
           <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full">
-              <Brain className="w-5 h-5 text-primary" />
-              <span className="text-sm font-medium text-primary">AI-Powered Focus Analytics</span>
-            </div>
-            <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Master Your Focus
+            <img 
+                src="/logo final ai.png" 
+                className="w-21 h-21 object-contain centered"
+              />
+            <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent text-center">
+              Study Buddy
             </h1>
             <p className="text-lg text-muted-foreground">
               Real-time AI monitoring to help you study smarter, not harder
@@ -269,8 +269,8 @@ const Auth = () => {
 
         {/* Right side - Auth Form */}
         <Card className="shadow-glow">
-          <CardHeader>
-            <CardTitle>Welcome Back</CardTitle>
+          <CardHeader className="text-center" >
+            <CardTitle> Welcome Back</CardTitle>
             <CardDescription>
               Sign in or create an account to get started
             </CardDescription>

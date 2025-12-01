@@ -103,7 +103,7 @@ const Goals = () => {
       <div className="min-h-screen bg-gradient-hero p-4 md:p-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
+            <h1 className="text-3xl font-bold bg-gradient-fun bg-clip-text text-transparent flex items-center gap-2">
               <Target className="w-8 h-8 text-primary" />
               Study Goals
             </h1>
@@ -225,30 +225,6 @@ const Goals = () => {
             </CardContent>
           </Card>
 
-          {/* Motivational Tips */}
-          <Card className="shadow-card bg-gradient-primary text-white border-0">
-            <CardHeader>
-              <CardTitle className="text-white">💡 Goal Setting Tips</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-white/95">
-              <p className="flex items-start gap-2">
-                <span>🎯</span>
-                <span>Start small - 25 minutes daily is better than unrealistic targets</span>
-              </p>
-              <p className="flex items-start gap-2">
-                <span>📈</span>
-                <span>Gradually increase your goals as you build the habit</span>
-              </p>
-              <p className="flex items-start gap-2">
-                <span>⏰</span>
-                <span>Study at the same time daily to build consistency</span>
-              </p>
-              <p className="flex items-start gap-2">
-                <span>🏆</span>
-                <span>Celebrate small wins - every session counts!</span>
-              </p>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </>

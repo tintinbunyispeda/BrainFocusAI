@@ -11,10 +11,6 @@ const Index = () => {
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-16 md:py-24">
         <div className="text-center space-y-6 max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full animate-bounce-in">
-            <Brain className="w-5 h-5 text-primary" />
-            <span className="text-sm font-medium text-primary">AI-Powered Focus Analytics</span>
-          </div>
           
           <h1 className="text-5xl md:text-7xl font-bold bg-gradient-primary bg-clip-text text-transparent leading-tight">
             Train Your
@@ -196,11 +192,6 @@ const Index = () => {
           </CardContent>
         </Card>
       </div>
-
-      {/* Footer */}
-      <footer className="container mx-auto px-4 py-8 text-center text-muted-foreground text-sm">
-        <p>© 2024 BrainyFocus AI. Built with ❤️ for students.</p>
-      </footer>
     </div>
   );
 };

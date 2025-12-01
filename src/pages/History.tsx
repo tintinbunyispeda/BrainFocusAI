@@ -106,7 +106,7 @@ const History = () => {
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">Study History</h1>
+              <h1 className="text-2xl font-bold bg-gradient-fun bg-clip-text text-transparent">Study History</h1>
               <p className="text-sm text-muted-foreground">View all your study sessions</p>
             </div>
           </div>

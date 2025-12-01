@@ -142,7 +142,7 @@ const Analytics = () => {
       <div className="min-h-screen bg-gradient-hero p-4 md:p-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="animate-fade-in">
-            <h1 className="text-3xl font-bold flex items-center gap-2">
+            <h1 className="text-3xl font-bold bg-gradient-fun bg-clip-text text-transparent flex items-center gap-2">
               <Activity className="w-8 h-8 text-primary" />
               Weekly Analytics
             </h1>

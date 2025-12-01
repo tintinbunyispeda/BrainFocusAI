@@ -282,7 +282,7 @@ const Dashboard = () => {
           {/* Welcome Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold">
+              <h1 className="text-3xl font-bold bg-gradient-fun bg-clip-text text-transparent">
                 Hey, {user?.user_metadata?.nama?.split(" ")[0] || "Friend"} 👋
               </h1>
               <p className="text-muted-foreground">
@@ -296,12 +296,12 @@ const Dashboard = () => {
           {/* Main Content */}
           <div className="grid lg:grid-cols-3 gap-6">
             {/* Video Feed */}
-            <div className="lg:col-span-2 space-y-4">
-              <Card className="shadow-card border-2 border-primary/20">
+            <div className="lg:col-span-2 space-y-4 " >
+              <Card className="shadow-card border-2 border-primary/20 ">
                 <CardHeader>
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center ">
                     <div>
-                      <CardTitle className="flex items-center gap-2">
+                      <CardTitle className="flex items-center gap-2 font-bold bg-gradient-fun bg-clip-text text-transparent">
                         <Eye className="w-5 h-5 text-primary" />
                         Live Monitoring
                       </CardTitle>
@@ -338,7 +338,10 @@ const Dashboard = () => {
                   />
                   {!isSessionActive && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20 backdrop-blur-sm">
-                      <Brain className="w-16 h-16 text-primary mb-4 animate-pulse" />
+                      <img 
+                        src="/logo final ai.png" 
+                        className="w-16 h-16 object-contain"
+                      />
                       <p className="text-foreground text-lg font-medium">Click "Start Session" to begin</p>
                       <p className="text-muted-foreground text-sm mt-2">Make sure your camera is ready!</p>
                     </div>
@@ -556,7 +559,10 @@ const Dashboard = () => {
                 <Card className="shadow-card bg-gradient-to-br from-primary/10 to-secondary/10 border-2 border-primary/20">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Brain className="w-5 h-5 text-primary" />
+                      <img 
+                        src="/logo final ai.png" 
+                        className="w-20 h-20 object-contain"
+                      />
                       Ready to Focus?
                     </CardTitle>
                     <CardDescription>
