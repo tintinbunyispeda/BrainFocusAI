@@ -45,19 +45,20 @@ const Auth = () => {
     const password = formData.get("password") as string;
     const nama = formData.get("nama") as string;
 
-    // Store pending user data and switch to face registration
+    // Simpan data sementara dan pindah ke scan wajah
     setPendingUser({ email, password, nama });
     setAuthMode("face-register");
     setLoading(false);
   };
 
-  const handleFaceRegistrationComplete = async (descriptors: Float32Array[]) => {
+  // --- BAGIAN INI YANG DIUBAH UNTUK KONEK KE PYTHON ---
+  const handleFaceRegistrationComplete = async (images: Blob[]) => {
     if (!pendingUser) return;
     
     setLoading(true);
     
     try {
-      // First, create the user account
+      // 1. Buat User di Supabase (Authentication)
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: pendingUser.email,
         password: pendingUser.password,
@@ -69,50 +70,50 @@ const Auth = () => {
         },
       });
 
-      if (signUpError) {
-        toast({
-          title: "Error",
-          description: signUpError.message,
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
+      if (signUpError) throw signUpError;
+
+      // 2. KIRIM DATA KE PYTHON (Agar bisa login pakai wajah)
+      let pythonSuccess = false;
+      
+      // Kita kirim setiap foto yang dicapture ke Python untuk disimpan di database.json
+      for (const imageBlob of images) {
+          const formData = new FormData();
+          formData.append("name", pendingUser.nama); // Nama user untuk label
+          formData.append("file", imageBlob, "train.jpg"); // Foto wajah
+
+          try {
+              // Panggil API Python (/register)
+              await fetch("http://localhost:8000/register", {
+                  method: "POST",
+                  body: formData
+              });
+              pythonSuccess = true;
+          } catch (pyErr) {
+              console.error("Python register fail:", pyErr);
+          }
       }
 
-      if (authData.user) {
-        // Save face descriptors to database
-        const descriptorRecords = descriptors.map((descriptor, index) => ({
-          user_id: authData.user!.id,
-          descriptor: Array.from(descriptor),
-          label: pendingUser.nama,
-        }));
-
-        const { error: descriptorError } = await supabase
-          .from("face_descriptors")
-          .insert(descriptorRecords);
-
-        if (descriptorError) {
-          console.error("Error saving face descriptors:", descriptorError);
-          toast({
-            title: "Warning",
-            description: "Account created but face data could not be saved. You can add it later.",
-            variant: "destructive",
-          });
-        } else {
+      if (pythonSuccess) {
           toast({
             title: "Success! 🎉",
-            description: "Account created with face login enabled!",
+            description: "Akun dibuat & Model Wajah berhasil dilatih!",
           });
-        }
+      } else {
+          toast({
+            title: "Warning",
+            description: "Akun jadi, tapi gagal konek ke Python AI. Cek terminal Python.",
+            variant: "destructive"
+          });
       }
 
       setPendingUser(null);
       setAuthMode("email");
-    } catch (error) {
+      
+    } catch (error: any) {
       console.error("Registration error:", error);
       toast({
         title: "Error",
-        description: "Registration failed. Please try again.",
+        description: error.message || "Registration failed.",
         variant: "destructive",
       });
     }
@@ -153,7 +154,7 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      // Call edge function to get magic link
+      // Panggil edge function untuk magic link (supaya login resmi di supabase)
       const { data, error } = await supabase.functions.invoke("face-auth", {
         body: { email, user_id: userId },
       });
@@ -162,7 +163,7 @@ const Auth = () => {
         console.error("Face auth error:", error || data?.error);
         toast({
           title: "Authentication Failed",
-          description: data?.error || "Could not complete face login. Please try again.",
+          description: data?.error || "Gagal login via wajah.",
           variant: "destructive",
         });
         setAuthMode("email");
@@ -170,19 +171,13 @@ const Auth = () => {
         return;
       }
 
-      // Show success message before redirect
-      toast({
-        title: "Face Verified!",
-        description: "Logging you in...",
-      });
-
-      // Redirect to the magic link - Supabase handles auth and redirects back
+      // Redirect ke magic link
       window.location.href = data.action_link;
     } catch (err) {
       console.error("Face login error:", err);
       toast({
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: "Terjadi kesalahan.",
         variant: "destructive",
       });
       setAuthMode("email");
@@ -190,7 +185,7 @@ const Auth = () => {
     }
   };
 
-  // Face Login Mode
+  // Tampilan Face Login
   if (authMode === "face-login") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
@@ -202,7 +197,7 @@ const Auth = () => {
     );
   }
 
-  // Face Registration Mode
+  // Tampilan Registrasi Wajah
   if (authMode === "face-register") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
@@ -289,7 +284,7 @@ const Auth = () => {
               size="lg"
             >
               <Camera className="w-5 h-5 text-primary" />
-              Sign In with Face
+              Sign In with Face (Custom AI)
             </Button>
 
             <div className="relative">

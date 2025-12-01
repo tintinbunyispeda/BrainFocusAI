@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useFaceAuth } from "@/hooks/useFaceAuth";
+import { useFaceAuth } from "@/hooks/useFaceAuth"; // Kita tetap pakai ini untuk nyalakan kamera
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Camera, CheckCircle, AlertCircle, Loader2, User, Mail } from "lucide-react";
@@ -20,17 +20,13 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
   const [isScanning, setIsScanning] = useState(false);
   const [status, setStatus] = useState<"idle" | "scanning" | "success" | "error">("idle");
   const [message, setMessage] = useState("Position your face to login");
-  const [userDescriptors, setUserDescriptors] = useState<any[]>([]);
   const [userName, setUserName] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
   const { toast } = useToast();
   
+  // Kita gunakan hook ini HANYA untuk menyalakan kamera (startCamera/stopCamera)
   const { 
     isReady, 
-    isLoading, 
-    error, 
-    captureFaceDescriptor, 
-    findMatchingFace,
     startCamera, 
     stopCamera 
   } = useFaceAuth(videoRef);
@@ -60,7 +56,7 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
     }
 
     try {
-      // Find profile by email
+      // 1. Cek apakah user ada di Supabase
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("id, nama")
@@ -68,119 +64,136 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
         .maybeSingle();
 
       if (profileError) {
-        console.error("Profile lookup error:", profileError);
-        toast({
-          title: "Error",
-          description: "Failed to look up account. Please try again.",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "Failed to look up account.", variant: "destructive" });
         return;
       }
 
       if (!profile) {
-        toast({
-          title: "User Not Found",
-          description: "No account found with this email. Please sign up first.",
-          variant: "destructive",
-        });
+        toast({ title: "User Not Found", description: "Email not registered.", variant: "destructive" });
         return;
       }
 
-      // Get face descriptors for this user
-      const { data: descriptors, error: descriptorError } = await supabase
-        .from("face_descriptors")
-        .select("*")
-        .eq("user_id", profile.id);
-
-      if (descriptorError || !descriptors || descriptors.length === 0) {
-        toast({
-          title: "Face Not Registered",
-          description: "No face data found for this account. Please use email/password login.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setUserDescriptors(descriptors);
       setUserName(profile.nama);
       setUserId(profile.id);
       setStep("face");
       setMessage(`Hi ${profile.nama}! Position your face to verify`);
     } catch (err) {
-      console.error("Email lookup error:", err);
-      toast({
-        title: "Error",
-        description: "Failed to look up account. Please try again.",
-        variant: "destructive",
-      });
+      console.error(err);
+      toast({ title: "Error", description: "Something went wrong.", variant: "destructive" });
     }
   };
 
+  // --- BAGIAN INI YANG DIMODIFIKASI UNTUK PAKAI MODEL KAMU ---
   const handleFaceVerify = useCallback(async () => {
-    if (isScanning) return;
+    if (isScanning || !videoRef.current) return;
     
     setIsScanning(true);
     setStatus("scanning");
-    setMessage("Scanning your face...");
+    setMessage("Analyzing with your AI Model...");
     
     try {
-      // Capture face descriptor
-      const descriptor = await captureFaceDescriptor();
+      // 1. Ambil gambar dari Video Stream
+      const video = videoRef.current;
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
       
-      if (!descriptor) {
-        setStatus("error");
-        setMessage("Face not detected. Please position your face clearly.");
-        setTimeout(() => setStatus("idle"), 2000);
+      if (!ctx) {
+        throw new Error("Failed to create canvas context");
+      }
+      
+      // Gambar frame video ke canvas
+      ctx.drawImage(video, 0, 0);
+      
+      // 2. Ubah Canvas ke File (Blob)
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+            setStatus("error");
+            setMessage("Failed to capture image");
+            setIsScanning(false);
+            return;
+        }
+
+        // 3. Kirim File ke Python Backend
+        const formData = new FormData();
+        formData.append("file", blob, "capture.jpg");
+
+        try {
+            // Pastikan URL ini sesuai dengan port main.py kamu
+            const response = await fetch("http://localhost:8000/verify", {
+                method: "POST",
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error("Gagal terhubung ke Python Server");
+            }
+
+            const result = await response.json();
+            console.log("AI Result:", result);
+
+            // 4. Cek Hasil Prediksi
+            if (result.match) {
+                // Cek apakah nama dari AI sama dengan akun yang mau login
+                // (Menggunakan lowercase agar case-insensitive)
+                if (result.name.toLowerCase().includes(userName.toLowerCase()) || 
+                    userName.toLowerCase().includes(result.name.toLowerCase())) {
+                    
+                    setStatus("success");
+                    setMessage(`Verified! Welcome ${userName}`);
+                    
+                    toast({
+                      title: "AI Verification Success! 🎉",
+                      description: `Model recognized you with ${(result.score * 100).toFixed(1)}% similarity.`,
+                    });
+                    
+                    setTimeout(() => {
+                      onSuccess(email, userId);
+                    }, 1000);
+                } else {
+                    setStatus("error");
+                    setMessage(`Face mismatch! Recognized as: ${result.name}`);
+                    setTimeout(() => setStatus("idle"), 2500);
+                }
+            } else {
+                setStatus("error");
+                setMessage("Face not recognized in database.");
+                setTimeout(() => setStatus("idle"), 2000);
+            }
+
+        } catch (apiError) {
+            console.error("API Error:", apiError);
+            setStatus("error");
+            setMessage("Is Python server running?"); // Pesan error kalau server mati
+            setTimeout(() => setStatus("idle"), 3000);
+        }
+        
         setIsScanning(false);
-        return;
-      }
-      
-      // Compare with stored descriptors
-      const storedDescriptors = userDescriptors.map(d => ({
-        descriptor: d.descriptor as number[],
-        label: d.user_id,
-      }));
-      
-      const match = findMatchingFace(descriptor, storedDescriptors, 0.5);
-      
-      if (match.matched) {
-        setStatus("success");
-        setMessage(`Welcome back, ${userName}!`);
-        
-        toast({
-          title: "Face Verified! 🎉",
-          description: `Logging you in...`,
-        });
-        
-        setTimeout(() => {
-          onSuccess(email, userId);
-        }, 1000);
-      } else {
-        setStatus("error");
-        setMessage("Face not recognized. Please try again.");
-        setTimeout(() => setStatus("idle"), 2000);
-      }
+      }, "image/jpeg", 0.9); // Kualitas JPG 0.9
+
     } catch (err) {
       console.error("Face verify error:", err);
       setStatus("error");
-      setMessage("An error occurred. Please try again.");
+      setMessage("An error occurred during capture.");
       setTimeout(() => setStatus("idle"), 2000);
+      setIsScanning(false);
     }
-    
-    setIsScanning(false);
-  }, [isScanning, captureFaceDescriptor, findMatchingFace, userDescriptors, userName, userId, email, toast, onSuccess]);
+  }, [isScanning, userName, userId, email, toast, onSuccess]);
 
-  // Email Step
+  // --- TAMPILAN (UI) ---
+
+  // 1. Tampilan Input Email
   if (step === "email") {
     return (
       <Card className="w-full max-w-md mx-auto shadow-glow">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Camera className="w-5 h-5 text-primary" />
-            Face Login
+            Face Login (Custom AI)
           </CardTitle>
           <CardDescription>
-            Enter your email to continue with face authentication
+            Enter email to verify with your custom model
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -200,46 +213,15 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
                 />
               </div>
             </div>
-            
-            <Button type="submit" className="w-full" size="lg">
-              Continue to Face Scan
-            </Button>
-            
-            <Button onClick={onCancel} variant="ghost" className="w-full" type="button">
-              Use Email/Password Instead
-            </Button>
+            <Button type="submit" className="w-full" size="lg">Continue</Button>
+            <Button onClick={onCancel} variant="ghost" className="w-full" type="button">Cancel</Button>
           </form>
         </CardContent>
       </Card>
     );
   }
 
-  // Loading State
-  if (isLoading) {
-    return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardContent className="flex flex-col items-center justify-center p-8 space-y-4">
-          <Loader2 className="w-12 h-12 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading face recognition...</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Error State
-  if (error) {
-    return (
-      <Card className="w-full max-w-md mx-auto border-destructive">
-        <CardContent className="flex flex-col items-center justify-center p-8 space-y-4">
-          <AlertCircle className="w-12 h-12 text-destructive" />
-          <p className="text-destructive">{error}</p>
-          <Button onClick={onCancel} variant="outline">Use Email Login</Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Face Verification Step
+  // 2. Tampilan Scan Wajah
   return (
     <Card className="w-full max-w-md mx-auto shadow-glow">
       <CardHeader>
@@ -247,12 +229,9 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
           <User className="w-5 h-5 text-primary" />
           Verify Your Face
         </CardTitle>
-        <CardDescription>
-          Look at the camera to verify it's you, {userName}
-        </CardDescription>
+        <CardDescription>Look at the camera, {userName}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Video Feed */}
         <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
           <video
             ref={videoRef}
@@ -260,20 +239,10 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
             autoPlay
             playsInline
             muted
-            style={{ transform: "scaleX(-1)" }}
+            style={{ transform: "scaleX(-1)" }} // Mirror effect
           />
           
-          {/* Face Guide Overlay */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className={`w-48 h-56 border-4 rounded-full transition-all duration-300 ${
-              status === "scanning" ? "border-accent animate-pulse scale-105" :
-              status === "success" ? "border-success" :
-              status === "error" ? "border-destructive" :
-              "border-primary/50"
-            }`} />
-          </div>
-          
-          {/* Status Badge */}
+          {/* Overlay Status */}
           <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
             status === "success" ? "bg-success text-white" :
             status === "error" ? "bg-destructive text-white" :
@@ -285,48 +254,20 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
             {status === "error" && <AlertCircle className="w-4 h-4 inline mr-2" />}
             {message}
           </div>
-          
-          {/* Success Animation */}
-          {status === "success" && (
-            <div className="absolute inset-0 bg-success/20 flex items-center justify-center animate-pulse">
-              <CheckCircle className="w-24 h-24 text-success" />
-            </div>
-          )}
         </div>
         
-        {/* Actions */}
         <Button 
           onClick={handleFaceVerify} 
           disabled={isScanning || status === "success"}
           className="w-full"
           size="lg"
         >
-          {isScanning ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Verifying...
-            </>
-          ) : status === "success" ? (
-            <>
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Verified!
-            </>
-          ) : (
-            <>
-              <Camera className="w-4 h-4 mr-2" />
-              Verify My Face
-            </>
-          )}
+          {isScanning ? "Processing..." : "Verify Identity"}
         </Button>
         
-        <div className="flex gap-2">
-          <Button onClick={() => setStep("email")} variant="outline" className="flex-1">
-            Change Email
-          </Button>
-          <Button onClick={onCancel} variant="ghost" className="flex-1">
-            Cancel
-          </Button>
-        </div>
+        <Button onClick={() => setStep("email")} variant="outline" className="w-full">
+          Change Email
+        </Button>
       </CardContent>
     </Card>
   );
