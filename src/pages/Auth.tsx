@@ -7,11 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Brain, Eye, TrendingUp, Camera, User } from "lucide-react";
+import { Brain, Eye, TrendingUp, Camera, User, ArrowLeft, KeyRound } from "lucide-react";
 import FaceLogin from "@/components/FaceLogin";
 import FaceRegistration from "@/components/FaceRegistration";
 
-type AuthMode = "email" | "face-login" | "face-register";
+type AuthMode = "email" | "face-login" | "face-register" | "forgot-password";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -36,6 +36,37 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  const handleResetPassword = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("email") as string;
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + "/profile",
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Check your email",
+        description: "We've sent a password reset link to " + email,
+      });
+      
+      setAuthMode("email");
+
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
@@ -45,20 +76,17 @@ const Auth = () => {
     const password = formData.get("password") as string;
     const nama = formData.get("nama") as string;
 
-    // Simpan data sementara dan pindah ke scan wajah
     setPendingUser({ email, password, nama });
     setAuthMode("face-register");
     setLoading(false);
   };
 
-  // --- BAGIAN INI YANG DIUBAH UNTUK KONEK KE PYTHON ---
   const handleFaceRegistrationComplete = async (images: Blob[]) => {
     if (!pendingUser) return;
     
     setLoading(true);
     
     try {
-      // 1. Buat User di Supabase (Authentication)
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: pendingUser.email,
         password: pendingUser.password,
@@ -72,17 +100,14 @@ const Auth = () => {
 
       if (signUpError) throw signUpError;
 
-      // 2. KIRIM DATA KE PYTHON (Agar bisa login pakai wajah)
       let pythonSuccess = false;
       
-      // Kita kirim setiap foto yang dicapture ke Python untuk disimpan di database.json
       for (const imageBlob of images) {
           const formData = new FormData();
-          formData.append("name", pendingUser.nama); // Nama user untuk label
-          formData.append("file", imageBlob, "train.jpg"); // Foto wajah
+          formData.append("name", pendingUser.nama);
+          formData.append("file", imageBlob, "train.jpg");
 
           try {
-              // Panggil API Python (/register)
               await fetch("http://localhost:8000/register", {
                   method: "POST",
                   body: formData
@@ -154,7 +179,6 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      // Panggil edge function untuk magic link (supaya login resmi di supabase)
       const { data, error } = await supabase.functions.invoke("face-auth", {
         body: { email, user_id: userId },
       });
@@ -171,7 +195,6 @@ const Auth = () => {
         return;
       }
 
-      // Redirect ke magic link
       window.location.href = data.action_link;
     } catch (err) {
       console.error("Face login error:", err);
@@ -185,7 +208,6 @@ const Auth = () => {
     }
   };
 
-  // Tampilan Face Login
   if (authMode === "face-login") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
@@ -197,15 +219,57 @@ const Auth = () => {
     );
   }
 
-  // Tampilan Registrasi Wajah
   if (authMode === "face-register") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
         <FaceRegistration
           onComplete={handleFaceRegistrationComplete}
           onCancel={handleFaceRegistrationCancel}
-          requiredCaptures={5}
+          requiredCaptures={30}
         />
+      </div>
+    );
+  }
+
+  if (authMode === "forgot-password") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
+        <Card className="w-full max-w-md shadow-glow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-primary" />
+              Reset Password
+            </CardTitle>
+            <CardDescription>
+              Enter your email and we'll send you a link to reset your password.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reset-email">Email Address</Label>
+                <Input 
+                  id="reset-email" 
+                  name="email" 
+                  type="email" 
+                  placeholder="your@email.com" 
+                  required 
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Sending Link..." : "Send Reset Link"}
+              </Button>
+              <Button 
+                type="button" 
+                variant="ghost" 
+                className="w-full gap-2" 
+                onClick={() => setAuthMode("email")}
+              >
+                <ArrowLeft className="w-4 h-4" /> Back to Login
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -219,6 +283,7 @@ const Auth = () => {
             <img 
                 src="/logo final ai.png" 
                 className="w-21 h-21 object-contain centered"
+                alt="Logo"
               />
             <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent text-center">
               Study Buddy
@@ -317,7 +382,17 @@ const Auth = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="login-password">Password</Label>
+                    <div className="flex items-center justify-between">
+                        <Label htmlFor="login-password">Password</Label>
+                        <Button 
+                            variant="link" 
+                            className="p-0 h-auto text-xs text-primary"
+                            type="button"
+                            onClick={() => setAuthMode("forgot-password")}
+                        >
+                            Forgot Password?
+                        </Button>
+                    </div>
                     <Input
                       id="login-password"
                       name="password"

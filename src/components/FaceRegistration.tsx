@@ -1,9 +1,11 @@
+// [File: src/components/FaceRegistration.tsx]
+
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useFaceAuth } from "@/hooks/useFaceAuth";
-import { Camera, Loader2, RefreshCw } from "lucide-react";
+import { Camera, Loader2, RefreshCw, Play } from "lucide-react"; // Tambah icon Play
 
 interface FaceRegistrationProps {
   onComplete: (images: Blob[]) => void;
@@ -14,15 +16,16 @@ interface FaceRegistrationProps {
 const FaceRegistration = ({ 
   onComplete, 
   onCancel, 
-  requiredCaptures = 5 
+  // UBAH 1: Default capture diperbanyak jadi 30 biar kaya video/gojek
+  requiredCaptures = 30 
 }: FaceRegistrationProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [capturedImages, setCapturedImages] = useState<Blob[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [status, setStatus] = useState<"idle" | "capturing" | "success" | "error">("idle");
-  const [message, setMessage] = useState("Position your face in the frame");
+  // UBAH 2: Pesan default yang lebih sesuai
+  const [message, setMessage] = useState("Press Start to begin scanning");
   
-  // Gunakan useFaceAuth hanya untuk akses kamera
   const { 
     isReady, 
     isLoading, 
@@ -39,66 +42,92 @@ const FaceRegistration = ({
     };
   }, [isReady, startCamera, stopCamera]);
 
-  const handleCapture = async () => {
-    if (isCapturing || !videoRef.current) return;
-    
-    // --- PERBAIKAN: KITA HAPUS PENGECEKAN isFaceDetected DISINI ---
-    // Langsung ambil gambar saja biar tidak error "No face detected"
-    
-    setIsCapturing(true);
-    setStatus("capturing");
-    setMessage("Capturing...");
-    
-    try {
-        // Ambil Snapshot
+  // UBAH 3: Logic Auto Capture (Looping)
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    if (isCapturing && status === "capturing") {
+      intervalId = setInterval(() => {
+        captureSingleFrame();
+      }, 100); // Ambil gambar setiap 100ms (10 fps)
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isCapturing, status, capturedImages.length]); 
+  // Dependency ke capturedImages.length penting biar dia cek terus limitnya
+
+  // Fungsi pembantu untuk ambil 1 frame (dipisahkan dari logic tombol)
+  const captureSingleFrame = () => {
+    if (!videoRef.current) return;
+
+    // Cek apakah sudah selesai
+    // PENTING: Gunakan functional update atau ref untuk akses state terbaru di dalam interval
+    setCapturedImages(prevImages => {
+        if (prevImages.length >= requiredCaptures) {
+            finishCapture(prevImages);
+            return prevImages;
+        }
+
         const video = videoRef.current;
+        if (!video) return prevImages;
+
         const canvas = document.createElement("canvas");
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext("2d");
         
-        if (!ctx) return;
+        if (!ctx) return prevImages;
 
-        // Gambar video ke canvas
         ctx.drawImage(video, 0, 0);
 
-        // Convert ke Blob (File Gambar)
+        // Convert sync to Blob is hard, so toBlob is async. 
+        // Utk performa tinggi "ala video", kita bisa pakai toDataURL lalu convert ke Blob, 
+        // atau biarkan async tapi handle race condition. 
+        // Disini kita pakai cara aman simple:
+        
         canvas.toBlob((blob) => {
             if (blob) {
-                const newImages = [...capturedImages, blob];
-                setCapturedImages(newImages);
-
-                if (newImages.length >= requiredCaptures) {
-                    setStatus("success");
-                    setMessage("Registration complete!");
-                    // Beri jeda sedikit biar user lihat progress penuh
-                    setTimeout(() => {
-                        onComplete(newImages);
-                    }, 1000);
-                } else {
-                    setStatus("idle");
-                    setMessage(`Captured ${newImages.length}/${requiredCaptures}. Move head slightly.`);
-                }
+                setCapturedImages(current => {
+                    // Cek lagi limit didalam callback async
+                    if (current.length >= requiredCaptures) return current; 
+                    return [...current, blob];
+                });
             }
-            setIsCapturing(false);
-        }, "image/jpeg", 0.95);
+        }, "image/jpeg", 0.8); // Kualitas 0.8 biar ringan karena banyak file
 
-    } catch (err) {
-        console.error(err);
-        setStatus("error");
-        setMessage("Capture failed");
-        setIsCapturing(false);
-    }
+        return prevImages; // State tidak berubah langsung disini karena async blob
+    });
+  };
+
+  const finishCapture = (finalImages: Blob[]) => {
+    setIsCapturing(false);
+    setStatus("success");
+    setMessage("Scan complete! Processing...");
+    setTimeout(() => {
+        onComplete(finalImages);
+    }, 1000);
+  };
+
+  // UBAH 4: Tombol start trigger scan otomatis
+  const handleStartScanning = () => {
+    setCapturedImages([]); // Reset dulu
+    setIsCapturing(true);
+    setStatus("capturing");
+    setMessage("Hold still and move your head slightly...");
   };
 
   const handleReset = () => {
     setCapturedImages([]);
     setStatus("idle");
-    setMessage("Position your face in the frame");
+    setIsCapturing(false);
+    setMessage("Press Start to begin scanning");
   };
 
   const progress = (capturedImages.length / requiredCaptures) * 100;
 
+  // ... (Bagian Loading tetap sama) ...
   if (isLoading) {
     return (
       <Card className="w-full max-w-md mx-auto">
@@ -115,10 +144,11 @@ const FaceRegistration = ({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Camera className="w-5 h-5 text-primary" />
-          Face Registration (Custom AI)
+          Face Registration
         </CardTitle>
         <CardDescription>
-          Capture {requiredCaptures} photos to train your model.
+          {/* Update text instruksi */}
+          Keep your face in the frame while scanning.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -133,24 +163,29 @@ const FaceRegistration = ({
             style={{ transform: "scaleX(-1)" }}
           />
           
-          {/* Face Guide Overlay (Hiasan visual saja) */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-48 h-56 border-2 border-dashed border-white/50 rounded-full opacity-50" />
+            {/* Visual circle ala Gojek saat scanning */}
+            <div className={`w-48 h-56 border-2 border-dashed rounded-full transition-colors duration-300 ${
+                isCapturing ? "border-primary animate-pulse" : "border-white/50"
+            }`} />
           </div>
           
           <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
             status === "success" ? "bg-success text-white" :
-            status === "capturing" ? "bg-accent text-white" :
+            status === "capturing" ? "bg-primary text-primary-foreground animate-pulse" :
             "bg-background/80 text-foreground"
           }`}>
-            {message}
+            {/* Tampilkan progress angka saat capturing */}
+            {status === "capturing" 
+                ? `Scanning... ${Math.round(progress)}%` 
+                : message}
           </div>
         </div>
         
         {/* Progress Bar */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Progress</span>
+            <span className="text-muted-foreground">Scan Progress</span>
             <span className="font-medium">{capturedImages.length}/{requiredCaptures}</span>
           </div>
           <Progress value={progress} className="h-2" />
@@ -159,29 +194,40 @@ const FaceRegistration = ({
         {/* Action Buttons */}
         <div className="flex gap-3">
           <Button 
-            onClick={handleCapture} 
+            onClick={handleStartScanning} 
             disabled={isCapturing || status === "success"}
             className="flex-1"
             size="lg"
+            variant={isCapturing ? "secondary" : "default"}
           >
             {isCapturing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Scanning...
+              </>
+            ) : status === "success" ? (
+              <>
+                 <Camera className="w-4 h-4 mr-2" />
+                 Done
+              </>
             ) : (
               <>
-                <Camera className="w-4 h-4 mr-2" />
-                Capture Photo
+                {/* Ganti icon jadi Play/Start biar user tau ini otomatis */}
+                <Play className="w-4 h-4 mr-2" />
+                Start Face Scan
               </>
             )}
           </Button>
           
-          {capturedImages.length > 0 && status !== "success" && (
+          {/* Tombol reset tetap ada jika user ingin ulang */}
+          {capturedImages.length > 0 && status !== "success" && !isCapturing && (
             <Button onClick={handleReset} variant="outline" size="lg">
               <RefreshCw className="w-4 h-4" />
             </Button>
           )}
         </div>
         
-        <Button onClick={onCancel} variant="ghost" className="w-full">
+        <Button onClick={onCancel} variant="ghost" className="w-full" disabled={isCapturing}>
           Cancel
         </Button>
       </CardContent>

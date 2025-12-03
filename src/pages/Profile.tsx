@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, User, Mail, Save, Lightbulb } from "lucide-react";
+import { ArrowLeft, User, Mail, Save, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 
@@ -15,6 +15,7 @@ const Profile = () => {
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [nama, setNama] = useState("");
+  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
     loadProfile();
@@ -43,21 +44,48 @@ const Profile = () => {
     if (!profile) return;
     
     setLoading(true);
-    const { error } = await supabase
+    let success = true;
+
+    // 1. Update Nama di tabel profiles
+    const { error: profileError } = await supabase
       .from("profiles")
       .update({ nama })
       .eq("id", profile.id);
 
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Gagal menyimpan perubahan",
-        variant: "destructive",
-      });
-    } else {
+    if (profileError) {
+      console.error(profileError);
+      success = false;
+    }
+
+    // 2. Update Password (jika diisi)
+    if (newPassword.trim().length > 0) {
+        const { error: passwordError } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+
+        if (passwordError) {
+            console.error(passwordError);
+            toast({
+                title: "Password Error",
+                description: passwordError.message,
+                variant: "destructive"
+            });
+            success = false;
+        } else {
+            setNewPassword(""); // Reset field jika sukses
+        }
+    }
+
+    if (success) {
       toast({
         title: "Berhasil!",
         description: "Profil berhasil diperbarui",
+      });
+    } else {
+      toast({
+        title: "Warning",
+        description: "Sebagian data mungkin gagal disimpan. Cek input.",
+        variant: "destructive",
       });
     }
     setLoading(false);
@@ -113,7 +141,25 @@ const Profile = () => {
               </p>
             </div>
 
-            <Button onClick={handleSave} disabled={loading} className="w-full sm:w-auto">
+            {/* --- FITUR BARU: CHANGE PASSWORD --- */}
+            <div className="space-y-2 pt-4 border-t">
+              <Label htmlFor="new-password">Change Password</Label>
+              <div className="flex gap-2">
+                <Lock className="w-5 h-5 text-muted-foreground mt-2" />
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password (optional)"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Leave blank if you don't want to change your password.
+              </p>
+            </div>
+
+            <Button onClick={handleSave} disabled={loading} className="w-full sm:w-auto mt-4">
               <Save className="w-4 h-4 mr-2" />
               {loading ? "Saving..." : "Save Changes"}
             </Button>

@@ -3,10 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useFaceAuth } from "@/hooks/useFaceAuth"; // Kita tetap pakai ini untuk nyalakan kamera
+import { useFaceAuth } from "@/hooks/useFaceAuth"; 
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, CheckCircle, AlertCircle, Loader2, User, Mail } from "lucide-react";
+import { Camera, CheckCircle, AlertCircle, Loader2, User, Mail, ScanFace } from "lucide-react";
 
 interface FaceLoginProps {
   onSuccess: (email: string, userId: string) => void;
@@ -24,7 +24,6 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
   const [userId, setUserId] = useState<string>("");
   const { toast } = useToast();
   
-  // Kita gunakan hook ini HANYA untuk menyalakan kamera (startCamera/stopCamera)
   const { 
     isReady, 
     startCamera, 
@@ -43,6 +42,27 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
     };
   }, [isReady, step, startCamera, stopCamera]);
 
+  // --- LOGIC BARU: AUTO SCANNING ---
+  useEffect(() => {
+    let scanInterval: NodeJS.Timeout;
+
+    // Jalankan loop hanya jika:
+    // 1. Sudah di step wajah
+    // 2. Kamera siap
+    // 3. Belum sukses login
+    // 4. Tidak sedang memproses request (isScanning false)
+    if (step === "face" && isReady && status !== "success") {
+      scanInterval = setInterval(() => {
+        if (!isScanning) {
+           handleFaceVerify();
+        }
+      }, 1500); // Cek setiap 1.5 detik (biar gak spamming banget ke server)
+    }
+
+    return () => clearInterval(scanInterval);
+  }, [step, isReady, status, isScanning]); // Dependencies penting!
+
+
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -56,7 +76,6 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
     }
 
     try {
-      // 1. Cek apakah user ada di Supabase
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("id, nama")
@@ -76,23 +95,22 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
       setUserName(profile.nama);
       setUserId(profile.id);
       setStep("face");
-      setMessage(`Hi ${profile.nama}! Position your face to verify`);
+      setMessage(`Hi ${profile.nama}! Looking for you...`);
     } catch (err) {
       console.error(err);
       toast({ title: "Error", description: "Something went wrong.", variant: "destructive" });
     }
   };
 
-  // --- BAGIAN INI YANG DIMODIFIKASI UNTUK PAKAI MODEL KAMU ---
   const handleFaceVerify = useCallback(async () => {
-    if (isScanning || !videoRef.current) return;
+    // Safety check biar gak double request
+    if (isScanning || !videoRef.current || status === "success") return;
     
     setIsScanning(true);
-    setStatus("scanning");
-    setMessage("Analyzing with your AI Model...");
+    // Kita tidak setStatus("scanning") disini supaya UI tidak kedip-kedip kuning terus
+    // Cukup biarkan status terakhir, atau update message saja.
     
     try {
-      // 1. Ambil gambar dari Video Stream
       const video = videoRef.current;
       const canvas = document.createElement("canvas");
       canvas.width = video.videoWidth;
@@ -100,43 +118,39 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
       const ctx = canvas.getContext("2d");
       
       if (!ctx) {
-        throw new Error("Failed to create canvas context");
+        setIsScanning(false);
+        return;
       }
       
-      // Gambar frame video ke canvas
       ctx.drawImage(video, 0, 0);
       
-      // 2. Ubah Canvas ke File (Blob)
       canvas.toBlob(async (blob) => {
         if (!blob) {
-            setStatus("error");
-            setMessage("Failed to capture image");
             setIsScanning(false);
             return;
         }
 
-        // 3. Kirim File ke Python Backend
         const formData = new FormData();
         formData.append("file", blob, "capture.jpg");
 
         try {
-            // Pastikan URL ini sesuai dengan port main.py kamu
             const response = await fetch("http://localhost:8000/verify", {
                 method: "POST",
                 body: formData
             });
             
             if (!response.ok) {
-                throw new Error("Gagal terhubung ke Python Server");
+                 // Kalau server error, baru kita kasih tau user
+                 console.error("Python Server Error");
+                 setIsScanning(false);
+                 return;
             }
 
             const result = await response.json();
-            console.log("AI Result:", result);
+            console.log("Auto Scan Result:", result);
 
-            // 4. Cek Hasil Prediksi
             if (result.match) {
-                // Cek apakah nama dari AI sama dengan akun yang mau login
-                // (Menggunakan lowercase agar case-insensitive)
+                // VERIFIKASI NAMA
                 if (result.name.toLowerCase().includes(userName.toLowerCase()) || 
                     userName.toLowerCase().includes(result.name.toLowerCase())) {
                     
@@ -144,56 +158,48 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
                     setMessage(`Verified! Welcome ${userName}`);
                     
                     toast({
-                      title: "AI Verification Success! 🎉",
-                      description: `Model recognized you with ${(result.score * 100).toFixed(1)}% similarity.`,
+                      title: "Login Success! 🎉",
+                      description: `Identified as ${result.name} (${(result.score * 100).toFixed(0)}%)`,
                     });
                     
                     setTimeout(() => {
                       onSuccess(email, userId);
                     }, 1000);
                 } else {
-                    setStatus("error");
-                    setMessage(`Face mismatch! Recognized as: ${result.name}`);
-                    setTimeout(() => setStatus("idle"), 2500);
+                    // Wajah ada, tapi bukan user yang dimaksud
+                    // Jangan set error merah, cukup info text saja biar halus
+                    setMessage(`Wrong person. Found: ${result.name}`);
                 }
             } else {
-                setStatus("error");
-                setMessage("Face not recognized in database.");
-                setTimeout(() => setStatus("idle"), 2000);
+                // Wajah tidak dikenali
+                setMessage("Scanning... Face not recognized yet.");
             }
 
         } catch (apiError) {
-            console.error("API Error:", apiError);
-            setStatus("error");
-            setMessage("Is Python server running?"); // Pesan error kalau server mati
-            setTimeout(() => setStatus("idle"), 3000);
+            console.error("API Connection Error:", apiError);
+            // Jangan spam error toast kalau server mati, cukup di console
         }
         
         setIsScanning(false);
-      }, "image/jpeg", 0.9); // Kualitas JPG 0.9
+      }, "image/jpeg", 0.8); // Compress dikit biar cepet uploadnya
 
     } catch (err) {
-      console.error("Face verify error:", err);
-      setStatus("error");
-      setMessage("An error occurred during capture.");
-      setTimeout(() => setStatus("idle"), 2000);
+      console.error("Capture error:", err);
       setIsScanning(false);
     }
-  }, [isScanning, userName, userId, email, toast, onSuccess]);
+  }, [isScanning, userName, userId, email, toast, onSuccess, status]); // Tambah status ke dependency
 
-  // --- TAMPILAN (UI) ---
-
-  // 1. Tampilan Input Email
+  // --- TAMPILAN EMAIL (STEP 1) ---
   if (step === "email") {
     return (
       <Card className="w-full max-w-md mx-auto shadow-glow">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Camera className="w-5 h-5 text-primary" />
-            Face Login (Custom AI)
+            <ScanFace className="w-5 h-5 text-primary" />
+            Face Login
           </CardTitle>
           <CardDescription>
-            Enter email to verify with your custom model
+            Enter email to activate face scanner
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -221,7 +227,7 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
     );
   }
 
-  // 2. Tampilan Scan Wajah
+  // --- TAMPILAN SCANNING (STEP 2) ---
   return (
     <Card className="w-full max-w-md mx-auto shadow-glow">
       <CardHeader>
@@ -229,46 +235,70 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
           <User className="w-5 h-5 text-primary" />
           Verify Your Face
         </CardTitle>
-        <CardDescription>Look at the camera, {userName}</CardDescription>
+        <CardDescription>
+           Hello <b>{userName}</b>, please look at the camera.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+        <div className="relative aspect-video bg-black rounded-lg overflow-hidden border-2 border-primary/20">
           <video
             ref={videoRef}
             className="w-full h-full object-cover"
             autoPlay
             playsInline
             muted
-            style={{ transform: "scaleX(-1)" }} // Mirror effect
+            style={{ transform: "scaleX(-1)" }} 
           />
           
-          {/* Overlay Status */}
-          <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-            status === "success" ? "bg-success text-white" :
-            status === "error" ? "bg-destructive text-white" :
-            status === "scanning" ? "bg-accent text-white" :
-            "bg-background/80 text-foreground"
+          {/* Scanning Animation Overlay */}
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+             {status !== "success" && (
+                <div className="w-64 h-1 bg-primary/50 absolute animate-[scan_2s_ease-in-out_infinite] top-0 shadow-[0_0_15px_rgba(59,130,246,0.5)]" 
+                     style={{ animationName: 'scanVertical' }} />
+             )}
+             
+             {/* Kotak Wajah */}
+             <div className={`w-48 h-56 border-2 rounded-xl transition-all duration-500 ${
+                 status === "success" ? "border-green-500 shadow-[0_0_30px_rgba(34,197,94,0.3)]" : 
+                 "border-white/30"
+             }`} />
+          </div>
+
+          {/* Status Badge */}
+          <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm font-medium transition-all w-max max-w-[90%] text-center truncate ${
+            status === "success" ? "bg-green-500 text-white" :
+            "bg-black/60 text-white backdrop-blur-sm"
           }`}>
-            {status === "scanning" && <Loader2 className="w-4 h-4 animate-spin inline mr-2" />}
             {status === "success" && <CheckCircle className="w-4 h-4 inline mr-2" />}
-            {status === "error" && <AlertCircle className="w-4 h-4 inline mr-2" />}
+            {status !== "success" && <Loader2 className="w-3 h-3 animate-spin inline mr-2" />}
             {message}
           </div>
         </div>
         
+        {/* Tombol sekarang hanya indikator, tidak perlu diklik */}
         <Button 
-          onClick={handleFaceVerify} 
-          disabled={isScanning || status === "success"}
-          className="w-full"
+          disabled={true} // Selalu disabled karena otomatis
+          className="w-full opacity-90"
           size="lg"
+          variant={status === "success" ? "default" : "secondary"}
         >
-          {isScanning ? "Processing..." : "Verify Identity"}
+          {status === "success" ? "Verification Complete" : "Auto-Scanning Active..."}
         </Button>
         
-        <Button onClick={() => setStep("email")} variant="outline" className="w-full">
-          Change Email
+        <Button onClick={() => setStep("email")} variant="ghost" className="w-full">
+          Back to Email
         </Button>
       </CardContent>
+      
+      {/* Tambahkan style untuk animasi scan garis */}
+      <style>{`
+        @keyframes scanVertical {
+          0% { top: 10%; opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { top: 90%; opacity: 0; }
+        }
+      `}</style>
     </Card>
   );
 };
