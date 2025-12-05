@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import Webcam from "react-webcam";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useFaceAuth } from "@/hooks/useFaceAuth"; 
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, CheckCircle, AlertCircle, Loader2, User, Mail, ScanFace } from "lucide-react";
+import { CheckCircle, Loader2, User, Mail, ScanFace, AlertTriangle } from "lucide-react";
 
 interface FaceLoginProps {
   onSuccess: (email: string, userId: string) => void;
@@ -22,6 +23,10 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
   const [message, setMessage] = useState("Position your face to login");
   const [userName, setUserName] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
+  
+  // State untuk efek visual error (border merah)
+  const [isError, setIsError] = useState(false);
+  
   const { toast } = useToast();
   
   const { 
@@ -42,25 +47,20 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
     };
   }, [isReady, step, startCamera, stopCamera]);
 
-  // --- LOGIC BARU: AUTO SCANNING ---
+  // --- AUTO SCANNING ---
   useEffect(() => {
     let scanInterval: NodeJS.Timeout;
 
-    // Jalankan loop hanya jika:
-    // 1. Sudah di step wajah
-    // 2. Kamera siap
-    // 3. Belum sukses login
-    // 4. Tidak sedang memproses request (isScanning false)
     if (step === "face" && isReady && status !== "success") {
       scanInterval = setInterval(() => {
         if (!isScanning) {
            handleFaceVerify();
         }
-      }, 1500); // Cek setiap 1.5 detik (biar gak spamming banget ke server)
+      }, 2000); // Cek setiap 2 detik
     }
 
     return () => clearInterval(scanInterval);
-  }, [step, isReady, status, isScanning]); // Dependencies penting!
+  }, [step, isReady, status, isScanning]); 
 
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -103,12 +103,10 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
   };
 
   const handleFaceVerify = useCallback(async () => {
-    // Safety check biar gak double request
     if (isScanning || !videoRef.current || status === "success") return;
     
     setIsScanning(true);
-    // Kita tidak setStatus("scanning") disini supaya UI tidak kedip-kedip kuning terus
-    // Cukup biarkan status terakhir, atau update message saja.
+    // Jangan reset isError di sini agar user sempat lihat merahnya kalau dari scan sebelumnya error
     
     try {
       const video = videoRef.current;
@@ -140,7 +138,6 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
             });
             
             if (!response.ok) {
-                 // Kalau server error, baru kita kasih tau user
                  console.error("Python Server Error");
                  setIsScanning(false);
                  return;
@@ -149,47 +146,83 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
             const result = await response.json();
             console.log("Auto Scan Result:", result);
 
+            // --- 1. CEK SPOOFING (FOTO/LAYAR) ---
+            if (result.name === "Spoof Suspected") {
+                setIsError(true);
+                setMessage("⚠️ Blur/Fake Detected");
+                
+                toast({
+                    variant: "destructive",
+                    title: "⚠️ Live Face Required",
+                    description: "Image is too blurry! Please ensure you are NOT scanning a photo or screen.",
+                    duration: 3000,
+                });
+
+                setTimeout(() => {
+                    setIsError(false);
+                    setIsScanning(false);
+                }, 2000); 
+                return; 
+            }
+
+            // --- 2. CEK PENGENALAN WAJAH ---
             if (result.match) {
-                // VERIFIKASI NAMA
-                if (result.name.toLowerCase().includes(userName.toLowerCase()) || 
-                    userName.toLowerCase().includes(result.name.toLowerCase())) {
-                    
+                // Cek apakah nama di database SAMA dengan nama pemilik email
+                // (Case insensitive check)
+                const dbName = result.name.toLowerCase();
+                const targetName = userName.toLowerCase();
+
+                if (dbName.includes(targetName) || targetName.includes(dbName)) {
+                    // SUKSES: ORANG YANG BENAR
                     setStatus("success");
                     setMessage(`Verified! Welcome ${userName}`);
+                    setIsError(false);
                     
                     toast({
-                      title: "Login Success! 🎉",
-                      description: `Identified as ${result.name} (${(result.score * 100).toFixed(0)}%)`,
+                      title: "✅ Login Success!",
+                      description: `Identity confirmed as ${result.name}.`,
                     });
                     
                     setTimeout(() => {
                       onSuccess(email, userId);
                     }, 1000);
+
                 } else {
-                    // Wajah ada, tapi bukan user yang dimaksud
-                    // Jangan set error merah, cukup info text saja biar halus
+                    // GAGAL: ORANG LAIN (Identity Mismatch)
+                    setIsError(true);
                     setMessage(`Wrong person. Found: ${result.name}`);
+                    
+                    toast({
+                        variant: "destructive",
+                        title: "⛔ Identity Mismatch",
+                        description: `You are NOT ${userName}. System identified you as ${result.name}.`,
+                    });
+                    
+                    setTimeout(() => setIsError(false), 2000);
                 }
             } else {
-                // Wajah tidak dikenali
-                setMessage("Scanning... Face not recognized yet.");
+                // WAJAH TIDAK DIKENALI (Unknown)
+                setMessage("Scanning... Face not recognized.");
+                setIsError(false);
             }
 
         } catch (apiError) {
             console.error("API Connection Error:", apiError);
-            // Jangan spam error toast kalau server mati, cukup di console
         }
         
-        setIsScanning(false);
-      }, "image/jpeg", 0.8); // Compress dikit biar cepet uploadnya
+        if (status !== "success") {
+            setIsScanning(false);
+        }
+        
+      }, "image/jpeg", 0.8);
 
     } catch (err) {
       console.error("Capture error:", err);
       setIsScanning(false);
     }
-  }, [isScanning, userName, userId, email, toast, onSuccess, status]); // Tambah status ke dependency
+  }, [isScanning, userName, userId, email, toast, onSuccess, status]);
 
-  // --- TAMPILAN EMAIL (STEP 1) ---
+  // --- TAMPILAN EMAIL ---
   if (step === "email") {
     return (
       <Card className="w-full max-w-md mx-auto shadow-glow">
@@ -227,7 +260,7 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
     );
   }
 
-  // --- TAMPILAN SCANNING (STEP 2) ---
+  // --- TAMPILAN SCANNING ---
   return (
     <Card className="w-full max-w-md mx-auto shadow-glow">
       <CardHeader>
@@ -240,7 +273,12 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="relative aspect-video bg-black rounded-lg overflow-hidden border-2 border-primary/20">
+        
+        <div className={`relative aspect-video bg-black rounded-lg overflow-hidden border-4 transition-colors duration-300 ${
+            isError ? "border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)]" : 
+            status === "success" ? "border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.5)]" :
+            "border-primary/20"
+        }`}>
           <video
             ref={videoRef}
             className="w-full h-full object-cover"
@@ -250,16 +288,16 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
             style={{ transform: "scaleX(-1)" }} 
           />
           
-          {/* Scanning Animation Overlay */}
+          {/* Animation Overlay */}
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-             {status !== "success" && (
+             {status !== "success" && !isError && (
                 <div className="w-64 h-1 bg-primary/50 absolute animate-[scan_2s_ease-in-out_infinite] top-0 shadow-[0_0_15px_rgba(59,130,246,0.5)]" 
                      style={{ animationName: 'scanVertical' }} />
              )}
              
-             {/* Kotak Wajah */}
              <div className={`w-48 h-56 border-2 rounded-xl transition-all duration-500 ${
                  status === "success" ? "border-green-500 shadow-[0_0_30px_rgba(34,197,94,0.3)]" : 
+                 isError ? "border-red-500 bg-red-500/10" :
                  "border-white/30"
              }`} />
           </div>
@@ -267,22 +305,23 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
           {/* Status Badge */}
           <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm font-medium transition-all w-max max-w-[90%] text-center truncate ${
             status === "success" ? "bg-green-500 text-white" :
+            isError ? "bg-red-600 text-white" :
             "bg-black/60 text-white backdrop-blur-sm"
           }`}>
             {status === "success" && <CheckCircle className="w-4 h-4 inline mr-2" />}
-            {status !== "success" && <Loader2 className="w-3 h-3 animate-spin inline mr-2" />}
+            {status !== "success" && !isError && <Loader2 className="w-3 h-3 animate-spin inline mr-2" />}
+            {isError && <AlertTriangle className="w-3 h-3 inline mr-2" />}
             {message}
           </div>
         </div>
         
-        {/* Tombol sekarang hanya indikator, tidak perlu diklik */}
         <Button 
-          disabled={true} // Selalu disabled karena otomatis
-          className="w-full opacity-90"
+          disabled={true} 
+          className={`w-full opacity-90 transition-colors ${isError ? "bg-red-100 text-red-900 hover:bg-red-200" : ""}`}
           size="lg"
           variant={status === "success" ? "default" : "secondary"}
         >
-          {status === "success" ? "Verification Complete" : "Auto-Scanning Active..."}
+          {status === "success" ? "Verification Complete" : isError ? "Access Denied / Retrying..." : "Auto-Scanning Active..."}
         </Button>
         
         <Button onClick={() => setStep("email")} variant="ghost" className="w-full">
@@ -290,7 +329,6 @@ const FaceLogin = ({ onSuccess, onCancel }: FaceLoginProps) => {
         </Button>
       </CardContent>
       
-      {/* Tambahkan style untuk animasi scan garis */}
       <style>{`
         @keyframes scanVertical {
           0% { top: 10%; opacity: 0; }
