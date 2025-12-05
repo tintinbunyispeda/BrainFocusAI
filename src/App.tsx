@@ -13,6 +13,7 @@ import Analytics from "./pages/Analytics";
 import Goals from "./pages/Goals";
 import Materials from "./pages/Materials";
 import NotFound from "./pages/NotFound";
+import AiAdvisor from "./pages/AiAdvisor";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/ai-advisor" element={<AiAdvisor />} />
           <Route path="/session/:id" element={<SessionReport />} />
           <Route path="/history" element={<History />} />
           <Route path="/analytics" element={<Analytics />} />
