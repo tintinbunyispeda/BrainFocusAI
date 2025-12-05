@@ -5,10 +5,23 @@ import tensorflow as tf
 from tensorflow.keras import layers, Model
 import numpy as np
 import cv2
-import json
 import io
 import os
 from PIL import Image
+from supabase import create_client, Client
+
+# --- KONFIGURASI SUPABASE (HARDCODED) ---
+# Kita masukkan langsung biar pasti terbaca
+SUPABASE_URL = "https://mcpxlcjzhcucbegczxhc.supabase.co"
+SUPABASE_KEY = "sb_publishable_H-tcN-8iZ3m24JH0unGcag_morQW45T"
+
+# Inisialisasi Client
+try:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    print("[INFO] Sukses koneksi ke Supabase.")
+except Exception as e:
+    print(f"[ERROR] Gagal koneksi Supabase: {e}")
+    supabase = None
 
 app = FastAPI()
 app.add_middleware(
@@ -19,7 +32,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- 1. MODEL ARCHITECTURE ---
+# --- MODEL ARCHITECTURE ---
 def build_mini_facenet(input_shape=(160, 160, 3), embedding_size=128):
     inp = layers.Input(shape=input_shape)
     x = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(inp)
@@ -32,26 +45,51 @@ def build_mini_facenet(input_shape=(160, 160, 3), embedding_size=128):
     x = layers.Lambda(lambda t: tf.nn.l2_normalize(t, axis=1), name="normalization_layer")(x)
     return Model(inp, x, name="MiniFaceNet")
 
-# --- 2. LOAD RESOURCES ---
 model = None
-database = {}
-DB_FILE = "face_database.json"
+local_cache = {}
 
-if os.path.exists("encoder.h5"):
+# --- SYNC DATABASE SAAT START ---
+def refresh_local_cache():
+    global local_cache
+    if not supabase:
+        print("[WARNING] Supabase offline. Menggunakan cache kosong.")
+        return
+
+    try:
+        # Ambil semua data user_faces dari Supabase
+        response = supabase.table('user_faces').select("*").execute()
+        data = response.data
+        
+        local_cache = {}
+        for row in data:
+            name = row['name']
+            embedding = row['embedding']
+            
+            if name not in local_cache:
+                local_cache[name] = []
+            local_cache[name].append(embedding)
+            
+        print(f"[OK] Database tersinkronisasi: {len(data)} user dimuat dari Cloud.")
+    except Exception as e:
+        print(f"[ERROR] Gagal download data dari Supabase: {e}")
+
+# --- LOAD RESOURCES ---
+# Deteksi lokasi file encoder.h5 otomatis
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ENCODER_PATH = os.path.join(BASE_DIR, "encoder.h5")
+
+if os.path.exists(ENCODER_PATH):
     try:
         model = build_mini_facenet()
-        model.load_weights("encoder.h5")
-        print("✅ Model loaded.")
+        model.load_weights(ENCODER_PATH)
+        print("[OK] Model AI berhasil dimuat.")
     except Exception as e:
-        print(f"❌ Model error: {e}")
+        print(f"[ERROR] Model error: {e}")
+else:
+    print(f"[CRITICAL] File encoder.h5 tidak ditemukan di: {ENCODER_PATH}")
 
-if os.path.exists(DB_FILE):
-    try:
-        with open(DB_FILE, "r") as f:
-            database = json.load(f)
-        print(f"✅ Database loaded: {len(database)} users.")
-    except:
-        print("⚠️ Database reset/empty.")
+# Panggil sync saat aplikasi nyala
+refresh_local_cache()
 
 def preprocess_image(image_bytes):
     image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
@@ -63,12 +101,12 @@ def preprocess_image(image_bytes):
 def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
-# --- 3. ENDPOINTS ---
+# --- ENDPOINTS ---
 
 @app.post("/register")
 async def register_face(name: str = Form(...), file: UploadFile = File(...)):
     if model is None:
-        return {"status": "error", "message": "Model not loaded"}
+        return {"status": "error", "message": "Model AI belum siap"}
     
     try:
         # 1. Proses Gambar
@@ -77,23 +115,31 @@ async def register_face(name: str = Form(...), file: UploadFile = File(...)):
         
         # 2. Buat Embedding
         embedding = model.predict(img_batch, verbose=0)[0]
+        embedding_list = [round(float(x), 4) for x in embedding.tolist()]
         
-        # 3. Simpan ke Database Memory
-        if name not in database:
-            database[name] = []
+        # 3. Simpan ke Supabase (CLOUD)
+        if supabase:
+            try:
+                data_insert = {
+                    "name": name,
+                    "embedding": embedding_list
+                }
+                supabase.table('user_faces').insert(data_insert).execute()
+                print(f"[CLOUD] Berhasil upload user baru: {name}")
+            except Exception as e_supa:
+                print(f"[CLOUD ERROR] Gagal simpan ke Supabase: {e_supa}")
+                # Jangan return error, lanjut simpan ke cache lokal biar user ga kecewa
         
-        # Simpan vektor sebagai list biasa (bukan numpy)
-        database[name].append(embedding.tolist())
-        
-        # 4. Simpan ke File JSON (Agar permanen)
-        with open(DB_FILE, "w") as f:
-            json.dump(database, f)
+        # 4. Simpan ke Cache Lokal (RAM)
+        if name not in local_cache:
+            local_cache[name] = []
+        local_cache[name].append(embedding_list)
             
-        print(f"🆕 User registered: {name}")
-        return {"status": "success", "message": f"User {name} registered"}
+        print(f"[LOCAL] User {name} aktif di sesi ini.")
+        return {"status": "success", "message": f"User {name} berhasil didaftarkan"}
         
     except Exception as e:
-        print(f"❌ Register error: {e}")
+        print(f"[ERROR] Register error: {e}")
         return {"status": "error", "message": str(e)}
 
 @app.post("/verify")
@@ -109,18 +155,18 @@ async def verify_face(file: UploadFile = File(...)):
         best_name = "Unknown"
         best_score = -1.0
 
-        for name, vectors in database.items():
+        # Cek database di RAM (yang sudah sync sama Supabase)
+        for name, vectors in local_cache.items():
             for vec in vectors:
                 score = cosine_similarity(current_embedding, np.array(vec))
                 if score > best_score:
                     best_score = score
                     best_name = name
         
-        # Threshold
         THRESHOLD = 0.55
         is_match = best_score > THRESHOLD
         
-        print(f"🔍 Scan: {best_name} | Score: {best_score:.4f}")
+        print(f"[SCAN] Hasil: {best_name} | Score: {best_score:.4f}")
 
         return {
             "match": bool(is_match),
@@ -129,7 +175,7 @@ async def verify_face(file: UploadFile = File(...)):
         }
 
     except Exception as e:
-        print(f"❌ Verify error: {e}")
+        print(f"[ERROR] Verify error: {e}")
         return {"match": False, "name": "Error", "error": str(e)}
 
 if __name__ == "__main__":
