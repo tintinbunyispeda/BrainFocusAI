@@ -237,11 +237,10 @@ Identifies dominant learning styles and generates personalized recommendations.
 
 ![Dashboard](screenshots/dashboard.png)
 
-## Weekly Analytics
-
+## Session Summary
 ![Analytics](screenshots/analytics.png)
 
-## Session Summary
+## Weekly Analytics
 
 ![Summary](screenshots/summary.png)
 
